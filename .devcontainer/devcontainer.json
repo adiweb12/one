@@ -3,10 +3,6 @@
   "name": "Flutter Development",
   "image": "mcr.microsoft.com/devcontainers/universal:latest",
   "features": {
-    "ghcr.io/devcontainers/features/flutter:1": {
-      "version": "latest",
-      "channels": "stable"
-    },
     "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   },
   "customizations": {
@@ -18,6 +14,6 @@
       ]
     }
   },
-  "postCreateCommand": "flutter doctor",
+  "postCreateCommand": "sudo git clone https://github.com/flutter/flutter.git /usr/local/flutter && sudo /usr/local/flutter/bin/flutter doctor",
   "remoteUser": "vscode"
 }
