@@ -3,7 +3,7 @@ name: Flutter Build
 on:
   push:
     branches:
-      - main   # change if your default branch is master
+      - main
   pull_request:
 
 jobs:
@@ -11,39 +11,33 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout repo
       - uses: actions/checkout@v4
 
-      # Setup Flutter SDK
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.24.0"
           channel: stable
 
-      # Install dependencies
       - run: flutter pub get
 
-      # ⚡ Fix invalid project name (replace ONE with one)
-      - name: Fix project name
+      # 🔥 FIX: Replace "ONE" with "one" everywhere
+      - name: Fix invalid project name everywhere
         run: |
-          sed -i 's/^name: one$/name: one/' pubspec.yaml
+          sed -i 's/ONE/one/g' pubspec.yaml || true
+          sed -i 's/ONE/one/g' .metadata || true
+          sed -i 's/ONE/one/g' android/settings.gradle || true
+          sed -i 's/ONE/one/g' android/app/build.gradle || true
 
-      # ⚡ Ensure android folder is updated
       - run: flutter create .
 
-      # Build release APK
       - run: flutter build apk --release
-
-      # Build release AAB (Google Play format)
       - run: flutter build appbundle --release
 
-      # Upload APK
       - uses: actions/upload-artifact@v4
         with:
           name: release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
 
-      # Upload AAB
       - uses: actions/upload-artifact@v4
         with:
           name: release-aab
