@@ -26,7 +26,7 @@ jobs:
       # ⚡ Fix invalid project name (replace ONE with one)
       - name: Fix project name
         run: |
-          sed -i 's/^name: ONE$/name: one/' pubspec.yaml
+          sed -i 's/^name: one$/name: one/' pubspec.yaml
 
       # ⚡ Ensure android folder is updated
       - run: flutter create .
