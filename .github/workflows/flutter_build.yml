@@ -20,15 +20,10 @@ jobs:
 
       - run: flutter pub get
 
-      # 🔥 FIX: Replace "ONE" with "one" everywhere
-      - name: Fix invalid project name everywhere
-        run: |
-          sed -i 's/ONE/one/g' pubspec.yaml || true
-          sed -i 's/ONE/one/g' .metadata || true
-          sed -i 's/ONE/one/g' android/settings.gradle || true
-          sed -i 's/ONE/one/g' android/app/build.gradle || true
-
-      - run: flutter create .
+      # FIX: Recreate broken android project
+      - run: |
+          rm -rf android
+          flutter create .
 
       - run: flutter build apk --release
       - run: flutter build appbundle --release
