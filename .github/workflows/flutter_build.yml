@@ -3,7 +3,7 @@ name: Flutter APK Build
 on:
   push:
     branches:
-      - main   # change if your default branch is master
+      - main
   pull_request:
 
 jobs:
@@ -11,22 +11,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout repo
       - uses: actions/checkout@v4
 
-      # Setup Flutter
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.24.0"  # or your version
+          flutter-version: "3.24.0"
           channel: stable
 
-      # Install dependencies
       - run: flutter pub get
+
+      # ⚡ FIX: if android/ is outdated, regenerate it
+      - run: flutter create .
 
       # Build APK (release)
       - run: flutter build apk --release
 
-      # Upload APK as artifact (fixed v4)
       - uses: actions/upload-artifact@v4
         with:
           name: release-apk
