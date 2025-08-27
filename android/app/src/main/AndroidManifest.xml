@@ -1,7 +1,8 @@
+
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.geekhoot">
+    package="com.example.one">
     <application
-        android:label="geekhoot"
+        android:label="ONE"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
