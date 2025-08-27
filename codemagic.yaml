@@ -1,0 +1,36 @@
+workflows:
+  flutter-app:
+    name: Flutter App Workflow
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+      groups:
+        - keystore_credentials # (if you add signing credentials later)
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          flutter pub get
+      - name: Analyze project
+        script: |
+          flutter analyze
+      - name: Run tests
+        script: |
+          flutter test
+      - name: Build Android APK
+        script: |
+          flutter build apk --release
+      - name: Build Android App Bundle
+        script: |
+          flutter build appbundle --release
+      - name: Build iOS
+        script: |
+          flutter build ios --release --no-codesign
+      - name: Build Web
+        script: |
+          flutter build web --release
+    artifacts:
+      - build/**/outputs/**/*.apk
+      - build/**/outputs/**/*.aab
+      - build/ios/ipa/*.ipa
+      - build/web/**
