@@ -28,6 +28,7 @@ class _LoginPageState extends State<LoginPage> {
 
   void login() async {
     String username = usernameController.text;
+    //ignore:unused_local_variable
     String _password = passwordController.text; // prefixed with _ so no warning
 
     setState(() {
