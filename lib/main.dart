@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 
 void main() {
   runApp(MyApp());
@@ -30,18 +28,18 @@ class _LoginPageState extends State<LoginPage> {
 
   void login() async {
     String username = usernameController.text;
-    String password = passwordController.text;
+    String _password = passwordController.text; // prefixed with _ so no warning
 
     setState(() {
       _isLoading = true;
     });
 
     try {
-      // Fake login response (DartPad can't call localhost server)
+      // Fake login response (since no backend is connected)
       await Future.delayed(Duration(seconds: 1));
       var data = {"message": "Login Successful"};
 
-      String message = data['message'];
+      String message = data['message'] ?? ''; // ✅ fixed null safety issue
 
       setState(() {
         _isLoading = false;
@@ -58,7 +56,8 @@ class _LoginPageState extends State<LoginPage> {
                 Navigator.of(context).pop();
                 Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (context) => MainPage(username: username)),
+                  MaterialPageRoute(
+                      builder: (context) => MainPage(username: username)),
                 );
               },
               child: Text('OK'),
@@ -164,12 +163,16 @@ class MainPage extends StatelessWidget {
               backgroundColor: Colors.blue[900],
               child: Text(
                 username.isNotEmpty ? username[0].toUpperCase() : "?",
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold),
               ),
             ),
             onPressed: () {
               Navigator.push(
-                  context, MaterialPageRoute(builder: (context) => ProfilePage(username: username)));
+                context,
+                MaterialPageRoute(
+                    builder: (context) => ProfilePage(username: username)),
+              );
             },
           ),
         ],
@@ -187,13 +190,21 @@ class MainPage extends StatelessWidget {
               actions: [
                 TextButton(
                   onPressed: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => CreatePage(username: username)));
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => CreatePage(username: username)),
+                    );
                   },
                   child: Text('Create New One'),
                 ),
                 TextButton(
                   onPressed: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => JoinPage(username: username)));
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => JoinPage(username: username)),
+                    );
                   },
                   child: Text('Join To An Existing One'),
                 ),
@@ -260,11 +271,13 @@ class CreatePage extends StatelessWidget {
             ElevatedButton(
               onPressed: () {
                 ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Group Created Successfully')));
+                  SnackBar(content: Text('Group Created Successfully')),
+                );
               },
               child: Text('CREATE'),
               style: ElevatedButton.styleFrom(
-                  minimumSize: Size(double.infinity, 50)),
+                minimumSize: Size(double.infinity, 50),
+              ),
             )
           ],
         ),
@@ -314,11 +327,13 @@ class JoinPage extends StatelessWidget {
             ElevatedButton(
               onPressed: () {
                 ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Joined Group Successfully')));
+                  SnackBar(content: Text('Joined Group Successfully')),
+                );
               },
               child: Text('JOIN'),
               style: ElevatedButton.styleFrom(
-                  minimumSize: Size(double.infinity, 50)),
+                minimumSize: Size(double.infinity, 50),
+              ),
             )
           ],
         ),
@@ -357,7 +372,10 @@ class ProfilePage extends StatelessWidget {
               child: Text(
                 username.isNotEmpty ? username[0].toUpperCase() : "?",
                 style: TextStyle(
-                    fontSize: 32, color: Colors.white, fontWeight: FontWeight.bold),
+                  fontSize: 32,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             SizedBox(height: 20),
@@ -376,11 +394,13 @@ class ProfilePage extends StatelessWidget {
             ElevatedButton(
               onPressed: () {
                 ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('UPDATED SUCCESSFULLY')));
+                  SnackBar(content: Text('UPDATED SUCCESSFULLY')),
+                );
               },
               child: Text('SAVE'),
               style: ElevatedButton.styleFrom(
-                  minimumSize: Size(double.infinity, 50)),
+                minimumSize: Size(double.infinity, 50),
+              ),
             )
           ],
         ),
