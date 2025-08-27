@@ -3,7 +3,7 @@ name: Flutter APK Build
 on:
   push:
     branches:
-      - main   # or master (your default branch)
+      - main   # change if your default branch is master
   pull_request:
 
 jobs:
@@ -12,7 +12,7 @@ jobs:
 
     steps:
       # Checkout repo
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       # Setup Flutter
       - uses: subosito/flutter-action@v2
@@ -26,8 +26,8 @@ jobs:
       # Build APK (release)
       - run: flutter build apk --release
 
-      # Upload APK as artifact
-      - uses: actions/upload-artifact@v3
+      # Upload APK as artifact (fixed v4)
+      - uses: actions/upload-artifact@v4
         with:
           name: release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
