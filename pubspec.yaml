@@ -1,23 +1,44 @@
-name: one_app
-description: A Flutter project for login, group creation, and profile pages.
-publish_to: "none"
+name: Flutter Build
 
-version: 1.0.0+1
+on:
+  push:
+    branches:
+      - main
+  pull_request:
 
-environment:
-  sdk: ">=2.18.0 <4.0.0"
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-dependencies:
-  flutter:
-    sdk: flutter
+    steps:
+      - uses: actions/checkout@v4
 
-  cupertino_icons: ^1.0.8
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.24.0"
+          channel: stable
 
-dev_dependencies:
-  flutter_test:
-    sdk: flutter
+      - run: flutter pub get
 
-  flutter_lints: ^3.0.1
+      # 🔥 FIX: Replace "ONE" with "one" everywhere
+      - name: Fix invalid project name everywhere
+        run: |
+          sed -i 's/ONE/one/g' pubspec.yaml || true
+          sed -i 's/ONE/one/g' .metadata || true
+          sed -i 's/ONE/one/g' android/settings.gradle || true
+          sed -i 's/ONE/one/g' android/app/build.gradle || true
 
-flutter:
-  uses-material-design: true
+      - run: flutter create .
+
+      - run: flutter build apk --release
+      - run: flutter build appbundle --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-aab
+          path: build/app/outputs/bundle/release/app-release.aab
