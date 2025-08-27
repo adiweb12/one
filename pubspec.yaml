@@ -1,6 +1,6 @@
-name: one
+name: one_app
 description: A Flutter project for login, group creation, and profile pages.
-publish_to: "none" # Prevent publishing to pub.dev
+publish_to: "none"
 
 version: 1.0.0+1
 
@@ -11,7 +11,6 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # Default Flutter icons
   cupertino_icons: ^1.0.8
 
 dev_dependencies:
@@ -22,8 +21,3 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-
-  assets:
-    # Add your image, font, or json assets here
-    # Example:
-    # - assets/images/
