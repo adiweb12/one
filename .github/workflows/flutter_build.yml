@@ -1,9 +1,9 @@
-name: Flutter APK Build
+name: Flutter Build
 
 on:
   push:
     branches:
-      - main
+      - main   # change if your default branch is master
   pull_request:
 
 jobs:
@@ -11,22 +11,40 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Checkout repo
       - uses: actions/checkout@v4
 
+      # Setup Flutter SDK
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.24.0"
           channel: stable
 
+      # Install dependencies
       - run: flutter pub get
 
-      # ⚡ FIX: if android/ is outdated, regenerate it
+      # ⚡ Fix invalid project name (replace ONE with one)
+      - name: Fix project name
+        run: |
+          sed -i 's/^name: ONE$/name: one/' pubspec.yaml
+
+      # ⚡ Ensure android folder is updated
       - run: flutter create .
 
-      # Build APK (release)
+      # Build release APK
       - run: flutter build apk --release
 
+      # Build release AAB (Google Play format)
+      - run: flutter build appbundle --release
+
+      # Upload APK
       - uses: actions/upload-artifact@v4
         with:
           name: release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
+
+      # Upload AAB
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-aab
+          path: build/app/outputs/bundle/release/app-release.aab
