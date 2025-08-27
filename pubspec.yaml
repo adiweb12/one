@@ -20,11 +20,4 @@ dev_dependencies:
   flutter_lints: ^3.0.1
 
 flutter:
-  uses-material-design: true        with:
-          name: release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: release-aab
-          path: build/app/outputs/bundle/release/app-release.aab
+  uses-material-design: true
