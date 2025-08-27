@@ -7,7 +7,7 @@ void main() {
   runApp(MyApp());
 }
 
-const String SERVER_IP = "127.0.0.1:5000";
+const String SERVER_IP = "192.168.1.100:5000";
 
 class MyApp extends StatelessWidget {
   @override
@@ -60,33 +60,26 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       var data = json.decode(response.body);
-      setState(() => _isLoading = false);
+      
+      // Navigate first, then show dialog
+      if (data['success']) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MainPage(username: username)
+          )
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(data['message']))
+        );
+      }
 
-      showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: Text('Login Status'),
-          content: Text(data['message']),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                if (data['success']) {
-                  Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => MainPage(username: username)));
-                }
-              },
-              child: Text('OK'),
-            )
-          ],
-        ),
-      );
     } catch (e) {
-      setState(() => _isLoading = false);
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -196,8 +189,7 @@ class _SignUpPageState extends State<SignUpPage> {
         body: json.encode({"username": username, "password": password, "name": name}),
       );
       var data = json.decode(response.body);
-      setState(() => _isLoading = false);
-
+      
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(data['message'])));
 
@@ -205,9 +197,10 @@ class _SignUpPageState extends State<SignUpPage> {
         Navigator.pop(context); // Go back to login page
       }
     } catch (e) {
-      setState(() => _isLoading = false);
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -697,6 +690,8 @@ class _ChatPageState extends State<ChatPage> {
     fetchMessages().then((_) {
       _scrollToBottom();
     });
+    // Timer is set to fetch new messages every 3 seconds.
+    // Consider a more efficient real-time solution for production apps.
     _timer = Timer.periodic(Duration(seconds: 3), (Timer t) => fetchMessages());
   }
 
@@ -768,10 +763,10 @@ class _ChatPageState extends State<ChatPage> {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text("Error: $e")));
       }
-    }
-
-    if (mounted) {
-      setState(() => _isLoading = false);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -800,6 +795,7 @@ class _ChatPageState extends State<ChatPage> {
                     alignment:
                         isMe ? Alignment.centerRight : Alignment.centerLeft,
                     child: Container(
+                      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
                       padding:
                           EdgeInsets.symmetric(vertical: 10, horizontal: 15),
                       decoration: BoxDecoration(
