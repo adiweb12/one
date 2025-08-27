@@ -1,4 +1,4 @@
-name: one chat
+name: onechat
 description: A Flutter app with login, group create/join, and profile features.
 publish_to: "none" # since this is not a package
 
