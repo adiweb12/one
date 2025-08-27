@@ -1,0 +1,33 @@
+name: Flutter APK Build
+
+on:
+  push:
+    branches:
+      - main   # or master (your default branch)
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout repo
+      - uses: actions/checkout@v3
+
+      # Setup Flutter
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.24.0"  # or your version
+          channel: stable
+
+      # Install dependencies
+      - run: flutter pub get
+
+      # Build APK (release)
+      - run: flutter build apk --release
+
+      # Upload APK as artifact
+      - uses: actions/upload-artifact@v3
+        with:
+          name: release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
