@@ -20,14 +20,17 @@ jobs:
 
       - run: flutter pub get
 
+      # Build APK and App Bundle
       - run: flutter build apk --release
       - run: flutter build appbundle --release
 
+      # Upload APK
       - uses: actions/upload-artifact@v4
         with:
           name: release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
 
+      # Upload AAB
       - uses: actions/upload-artifact@v4
         with:
           name: release-aab
