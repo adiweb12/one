@@ -52,7 +52,7 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isLoading = true);
 
     try {
-      var url = Uri.parse("http://$SERVER_IP/login");
+      var url = Uri.parse("https://$SERVER_IP/login");
       var response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
@@ -182,7 +182,7 @@ class _SignUpPageState extends State<SignUpPage> {
     setState(() => _isLoading = true);
 
     try {
-      var url = Uri.parse("http://$SERVER_IP/signup");
+      var url = Uri.parse("https://$SERVER_IP/signup");
       var response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
@@ -297,7 +297,7 @@ class _MainPageState extends State<MainPage> {
 
   Future<void> fetchGroups() async {
     try {
-      var url = Uri.parse("http://$SERVER_IP/profile/${widget.username}");
+      var url = Uri.parse("https://$SERVER_IP/profile/${widget.username}");
       var response = await http.get(url);
       var data = json.decode(response.body);
       if (data['success']) {
@@ -430,7 +430,7 @@ class CreatePage extends StatelessWidget {
     }
 
     try {
-      var url = Uri.parse("http://$SERVER_IP/create_group");
+      var url = Uri.parse("https://$SERVER_IP/create_group");
       var response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
@@ -494,7 +494,7 @@ class JoinPage extends StatelessWidget {
     }
 
     try {
-      var url = Uri.parse("http://$SERVER_IP/join_group");
+      var url = Uri.parse("https://$SERVER_IP/join_group");
       var response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
@@ -557,7 +557,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> fetchProfile() async {
     try {
-      var url = Uri.parse("http://$SERVER_IP/profile/${widget.username}");
+      var url = Uri.parse("https://$SERVER_IP/profile/${widget.username}");
       var response = await http.get(url);
       var data = json.decode(response.body);
       if (data['success']) {
@@ -577,7 +577,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   void updateProfile() async {
     try {
-      var url = Uri.parse("http://$SERVER_IP/update_profile");
+      var url = Uri.parse("https://$SERVER_IP/update_profile");
       var response = await http.post(url,
           headers: {"Content-Type": "application/json"},
           body: json.encode({"username": widget.username, "newName": nameController.text}));
@@ -713,7 +713,7 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> fetchMessages() async {
     try {
-      var url = Uri.parse("http://$SERVER_IP/get_messages/${widget.groupNumber}");
+      var url = Uri.parse("https://$SERVER_IP/get_messages/${widget.groupNumber}");
       var response = await http.get(url);
       var data = json.decode(response.body);
 
@@ -737,7 +737,7 @@ class _ChatPageState extends State<ChatPage> {
     setState(() => _isLoading = true);
 
     try {
-      var url = Uri.parse("http://$SERVER_IP/send_message");
+      var url = Uri.parse("https://$SERVER_IP/send_message");
       var response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
