@@ -7,7 +7,7 @@ void main() {
   runApp(MyApp());
 }
 
-const String SERVER_IP = "192.168.1.100:5000";
+const String SERVER_IP = "100.95.92.80:5000";
 
 class MyApp extends StatelessWidget {
   @override
