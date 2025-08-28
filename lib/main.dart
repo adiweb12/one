@@ -99,7 +99,7 @@ class _LoginPageState extends State<LoginPage> {
             child: Column(
               children: [
                 Text(
-                  'GEEKHOOT',
+                  'ONE CHAT',
                   style: TextStyle(
                       color: Colors.blue[900],
                       fontSize: 28,
