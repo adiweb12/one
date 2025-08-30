@@ -1,44 +1,9 @@
-name: Flutter Build
+- name: Create android folder if missing
+  run: flutter create --platforms=android .
 
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+- name: Add Internet permission
+  run: |
+    sed -i '/<manifest/a\    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Install Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.24.0' # your version
-
-      - name: Get dependencies
-        run: flutter pub get
-
-      - name: Try build release APK
-        id: build-apk
-        continue-on-error: true
-        run: flutter build apk --release
-
-      - name: Check if build failed
-        if: steps.build-apk.outcome == 'failure'
-        run: |
-          echo "⚠️ Build failed. Regenerating android/ folder..."
-
-          # Remove old android folder
-          rm -rf android
-
-          # Recreate android folder
-          flutter create --platforms=android .
-
-          # Add Internet permission
-          sed -i '/<application/a\    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
-
-      - name: Retry build release APK
-        if: steps.build-apk.outcome == 'failure'
-        run: flutter build apk --release
+- name: Build release APK
+  run: flutter build apk --release
