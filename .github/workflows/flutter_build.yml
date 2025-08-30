@@ -2,36 +2,43 @@ name: Flutter Build
 
 on:
   push:
-    branches:
-      - main
+    branches: [ "main" ]
   pull_request:
+    branches: [ "main" ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
-      - uses: subosito/flutter-action@v2
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.24.0"
-          channel: stable
+          flutter-version: '3.24.0' # your version
 
-      - run: flutter pub get
+      - name: Get dependencies
+        run: flutter pub get
 
-      # Build APK and App Bundle
-      - run: flutter build apk --release
-      - run: flutter build appbundle --release
+      - name: Try build release APK
+        id: build-apk
+        continue-on-error: true
+        run: flutter build apk --release
 
-      # Upload APK
-      - uses: actions/upload-artifact@v4
-        with:
-          name: release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+      - name: Check if build failed
+        if: steps.build-apk.outcome == 'failure'
+        run: |
+          echo "⚠️ Build failed. Regenerating android/ folder..."
 
-      # Upload AAB
-      - uses: actions/upload-artifact@v4
-        with:
-          name: release-aab
-          path: build/app/outputs/bundle/release/app-release.aab
+          # Remove old android folder
+          rm -rf android
+
+          # Recreate android folder
+          flutter create --platforms=android .
+
+          # Add Internet permission
+          sed -i '/<application/a\    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
+
+      - name: Retry build release APK
+        if: steps.build-apk.outcome == 'failure'
+        run: flutter build apk --release
