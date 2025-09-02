@@ -61,12 +61,12 @@ class _LoginPageState extends State<LoginPage> {
 
       var data = json.decode(response.body);
       
-      // Navigate first, then show dialog
       if (data['success']) {
+        String token = data['token'];
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => MainPage(username: username)
+            builder: (_) => MainPage(username: username, token: token)
           )
         );
       } else {
@@ -280,7 +280,8 @@ class _SignUpPageState extends State<SignUpPage> {
 // ---------------- MAIN PAGE ----------------
 class MainPage extends StatefulWidget {
   final String username;
-  const MainPage({Key? key, required this.username}) : super(key: key);
+  final String token;
+  const MainPage({Key? key, required this.username, required this.token}) : super(key: key);
 
   @override
   _MainPageState createState() => _MainPageState();
@@ -297,8 +298,12 @@ class _MainPageState extends State<MainPage> {
 
   Future<void> fetchGroups() async {
     try {
-      var url = Uri.parse("https://$SERVER_IP/profile/${widget.username}");
-      var response = await http.get(url);
+      var url = Uri.parse("https://$SERVER_IP/profile");
+      var response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: json.encode({"token": widget.token}),
+      );
       var data = json.decode(response.body);
       if (data['success']) {
         List userGroups = data['groups'] ?? [];
@@ -330,7 +335,7 @@ class _MainPageState extends State<MainPage> {
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
-                  builder: (_) => ProfilePage(username: widget.username)),
+                  builder: (_) => ProfilePage(username: widget.username, token: widget.token)),
             ),
             child: Padding(
               padding: EdgeInsets.all(8.0),
@@ -362,6 +367,7 @@ class _MainPageState extends State<MainPage> {
                                     groupName: group['name'] as String,
                                     username: widget.username,
                                     groupNumber: group['number'] as String,
+                                    token: widget.token,
                                     )));
                       },
                     ),
@@ -382,7 +388,7 @@ class _MainPageState extends State<MainPage> {
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (_) => CreatePage(username: widget.username)),
+                          builder: (_) => CreatePage(username: widget.username, token: widget.token)),
                     );
                     await refreshGroups();
                   },
@@ -394,7 +400,7 @@ class _MainPageState extends State<MainPage> {
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (_) => JoinPage(username: widget.username)),
+                          builder: (_) => JoinPage(username: widget.username, token: widget.token)),
                     );
                     await refreshGroups();
                   },
@@ -414,10 +420,11 @@ class _MainPageState extends State<MainPage> {
 // ---------------- CREATE PAGE ----------------
 class CreatePage extends StatelessWidget {
   final String username;
+  final String token;
   final TextEditingController groupNameController = TextEditingController();
   final TextEditingController groupNumberController = TextEditingController();
 
-  CreatePage({Key? key, required this.username}) : super(key: key);
+  CreatePage({Key? key, required this.username, required this.token}) : super(key: key);
 
   void createGroup(BuildContext context) async {
     String groupName = groupNameController.text.trim();
@@ -434,7 +441,7 @@ class CreatePage extends StatelessWidget {
       var response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
-        body: json.encode({"username": username, "groupName": groupName, "groupNumber": groupNumber}),
+        body: json.encode({"token": token, "groupName": groupName, "groupNumber": groupNumber}),
       );
       var data = json.decode(response.body);
       ScaffoldMessenger.of(context)
@@ -481,9 +488,10 @@ class CreatePage extends StatelessWidget {
 // ---------------- JOIN PAGE ----------------
 class JoinPage extends StatelessWidget {
   final String username;
+  final String token;
   final TextEditingController groupNumberController = TextEditingController();
 
-  JoinPage({Key? key, required this.username}) : super(key: key);
+  JoinPage({Key? key, required this.username, required this.token}) : super(key: key);
 
   void joinGroup(BuildContext context) async {
     String groupNumber = groupNumberController.text.trim();
@@ -498,7 +506,7 @@ class JoinPage extends StatelessWidget {
       var response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
-        body: json.encode({"username": username, "groupNumber": groupNumber}),
+        body: json.encode({"token": token, "groupNumber": groupNumber}),
       );
       var data = json.decode(response.body);
       ScaffoldMessenger.of(context)
@@ -539,7 +547,8 @@ class JoinPage extends StatelessWidget {
 // ---------------- PROFILE PAGE ----------------
 class ProfilePage extends StatefulWidget {
   final String username;
-  const ProfilePage({Key? key, required this.username}) : super(key: key);
+  final String token;
+  const ProfilePage({Key? key, required this.username, required this.token}) : super(key: key);
 
   @override
   _ProfilePageState createState() => _ProfilePageState();
@@ -557,8 +566,12 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> fetchProfile() async {
     try {
-      var url = Uri.parse("https://$SERVER_IP/profile/${widget.username}");
-      var response = await http.get(url);
+      var url = Uri.parse("https://$SERVER_IP/profile");
+      var response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: json.encode({"token": widget.token}),
+      );
       var data = json.decode(response.body);
       if (data['success']) {
         setState(() {
@@ -580,7 +593,7 @@ class _ProfilePageState extends State<ProfilePage> {
       var url = Uri.parse("https://$SERVER_IP/update_profile");
       var response = await http.post(url,
           headers: {"Content-Type": "application/json"},
-          body: json.encode({"username": widget.username, "newName": nameController.text}));
+          body: json.encode({"token": widget.token, "newName": nameController.text}));
       var data = json.decode(response.body);
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(data['message'])));
@@ -665,12 +678,14 @@ class ChatPage extends StatefulWidget {
   final String groupName;
   final String username;
   final String groupNumber;
+  final String token;
 
   const ChatPage({
     Key? key,
     required this.groupName,
     required this.username,
     required this.groupNumber,
+    required this.token,
   }) : super(key: key);
 
   @override
@@ -690,8 +705,6 @@ class _ChatPageState extends State<ChatPage> {
     fetchMessages().then((_) {
       _scrollToBottom();
     });
-    // Timer is set to fetch new messages every 3 seconds.
-    // Consider a more efficient real-time solution for production apps.
     _timer = Timer.periodic(Duration(seconds: 3), (Timer t) => fetchMessages());
   }
 
@@ -714,7 +727,11 @@ class _ChatPageState extends State<ChatPage> {
   Future<void> fetchMessages() async {
     try {
       var url = Uri.parse("https://$SERVER_IP/get_messages/${widget.groupNumber}");
-      var response = await http.get(url);
+      var response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: json.encode({"token": widget.token}),
+      );
       var data = json.decode(response.body);
 
       if (data['success']) {
@@ -745,6 +762,7 @@ class _ChatPageState extends State<ChatPage> {
           "username": widget.username,
           "groupNumber": widget.groupNumber,
           "message": text,
+          "token": widget.token,
         }),
       );
 
@@ -863,3 +881,4 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 }
+                      
