@@ -17,7 +17,7 @@ jobs:
       - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0' # change to your Flutter version
+          flutter-version: '3.24.0' # your version
 
       - name: Get dependencies
         run: flutter pub get
@@ -33,12 +33,29 @@ jobs:
           echo "⚠️ Build failed. Regenerating android/ folder..."
           rm -rf android
           flutter create --platforms=android .
-          
-          # Add INTERNET permission safely (outside <application>)
+
+          # Add INTERNET permission
           sed -i '/<manifest/a\    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
 
-      - name: Retry build release APK
+          # Change app name to OneChat
+          sed -i 's/android:label="[^"]*"/android:label="OneChat"/' android/app/src/main/AndroidManifest.xml
+
+      # ✅ Always regenerate logo and app name
+      - name: Apply branding (logo + name)
+        run: |
+          # Make sure dependencies are up to date
+          flutter pub get
+          # Generate launcher icons from image/logo.png
+          flutter pub run flutter_launcher_icons
+          # Ensure app name is OneChat
+          sed -i 's/android:label="[^"]*"/android:label="OneChat"/' android/app/src/main/AndroidManifest.xml
+
+      - name: Retry build release APK if failed earlier
         if: steps.build-apk.outcome == 'failure'
+        run: flutter build apk --release
+
+      - name: Build release APK (normal path)
+        if: steps.build-apk.outcome == 'success'
         run: flutter build apk --release
 
       - name: Upload APK artifact
