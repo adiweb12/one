@@ -44,8 +44,6 @@ jobs:
           # Ensure app uses your launcher icon
           sed -i 's/android:icon="@mipmap\/ic_launcher"/android:icon="@mipmap\/launcher_icon"/' $MANIFEST
 
-          sed -i 's/android:label="[^"]*"/android:label="OneChat"/' android/app/src/main/AndroidManifest.xml
-         
           echo "✅ Patched AndroidManifest.xml"
 
       # Run flutter_launcher_icons (your image/logo.png)
@@ -61,4 +59,4 @@ jobs:
         uses: actions/upload-artifact@v4   # 🔄 upgraded to v4
         with:
           name: release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk,
+          path: build/app/outputs/flutter-apk/app-release.apk
