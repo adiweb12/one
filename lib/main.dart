@@ -50,7 +50,6 @@ class _LoginPageState extends State<LoginPage> {
   void checkLoginStatus() async {
     String? username = await storage.read(key: 'username');
     String? token = await storage.read(key: 'token');
-
     if (username != null && token != null) {
       Navigator.pushReplacement(
         context,
@@ -64,12 +63,12 @@ class _LoginPageState extends State<LoginPage> {
   void login() async {
     String username = usernameController.text;
     String password = passwordController.text;
-
     if (username.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Please enter username and password')));
       return;
     }
+
     setState(() => _isLoading = true);
     try {
       var url = Uri.parse("https://$SERVER_IP/login");
@@ -78,18 +77,21 @@ class _LoginPageState extends State<LoginPage> {
         headers: {"Content-Type": "application/json"},
         body: json.encode({"username": username, "password": password}),
       );
+
       var data = json.decode(response.body);
       if (data['success']) {
         String token = data['token'];
         await storage.write(key: 'username', value: username);
         await storage.write(key: 'token', value: token);
         Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-                builder: (_) => MainPage(username: username, token: token)));
+          context,
+          MaterialPageRoute(
+            builder: (_) => MainPage(username: username, token: token),
+          ),
+        );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(data['message'])));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(data['message'])));
       }
     } catch (e) {
       ScaffoldMessenger.of(context)
@@ -188,12 +190,12 @@ class _SignUpPageState extends State<SignUpPage> {
     String username = usernameController.text.trim();
     String password = passwordController.text.trim();
     String name = nameController.text.trim();
-
     if (username.isEmpty || password.isEmpty || name.isEmpty) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Please fill all fields')));
       return;
     }
+
     setState(() => _isLoading = true);
     try {
       var url = Uri.parse("https://$SERVER_IP/signup");
@@ -203,6 +205,7 @@ class _SignUpPageState extends State<SignUpPage> {
         body: json.encode(
             {"username": username, "password": password, "name": name}),
       );
+
       var data = json.decode(response.body);
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(data['message'])));
@@ -311,7 +314,7 @@ class _MainPageState extends State<MainPage> {
     fetchGroupsAndProfile();
   }
 
-  Future fetchGroupsAndProfile() async {
+  Future<void> fetchGroupsAndProfile() async {
     try {
       var url = Uri.parse("https://$SERVER_IP/profile");
       var response = await http.post(
@@ -319,6 +322,7 @@ class _MainPageState extends State<MainPage> {
         headers: {"Content-Type": "application/json"},
         body: json.encode({"token": widget.token}),
       );
+
       if (response.statusCode != 200) {
         if (mounted) {
           ScaffoldMessenger.of(context)
@@ -326,11 +330,12 @@ class _MainPageState extends State<MainPage> {
         }
         return;
       }
+
       var data = json.decode(response.body);
       if (data['success']) {
-        List userGroups = data['groups'] ?? [];
+        List<dynamic> userGroups = data['groups'] ?? [];
         setState(() {
-          groups = List<Map<String, dynamic>>.from(userGroups);
+          groups = List<Map<String, dynamic>>.from(userGroups.cast<Map<String, dynamic>>());
           displayedName = data['name'];
         });
       }
@@ -342,9 +347,9 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
-  Future refreshGroups() async => fetchGroupsAndProfile();
+  Future<void> refreshGroups() async => fetchGroupsAndProfile();
 
-  Future deleteGroup(String groupNumber) async {
+  Future<void> deleteGroup(String groupNumber) async {
     try {
       var url = Uri.parse("https://$SERVER_IP/delete_group");
       var response = await http.post(
@@ -368,7 +373,7 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
-  Future leaveGroup(String groupNumber) async {
+  Future<void> leaveGroup(String groupNumber) async {
     try {
       var url = Uri.parse("https://$SERVER_IP/leave_group");
       var response = await http.post(
@@ -435,16 +440,17 @@ class _MainPageState extends State<MainPage> {
                     child: ListTile(
                       title: Text(group['name'] as String),
                       subtitle: Text("Group Number: ${group['number']}"),
-                      trailing: PopupMenuButton(
+                      trailing: PopupMenuButton<String>(
                         onSelected: (String result) {
                           if (result == 'edit') {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => EditGroupPage(
-                                    groupNumber: group['number'],
-                                    currentGroupName: group['name'],
-                                    token: widget.token),
+                                  groupNumber: group['number'],
+                                  currentGroupName: group['name'],
+                                  token: widget.token,
+                                ),
                               ),
                             ).then((value) {
                               if (value == true) {
@@ -460,16 +466,16 @@ class _MainPageState extends State<MainPage> {
                         itemBuilder: (BuildContext context) {
                           List<PopupMenuEntry<String>> items = [];
                           if (isGroupAdmin) {
-                            items.add(const PopupMenuItem(
+                            items.add(const PopupMenuItem<String>(
                               value: 'edit',
                               child: Text('Edit Group'),
                             ));
-                            items.add(const PopupMenuItem(
+                            items.add(const PopupMenuItem<String>(
                               value: 'delete',
                               child: Text('Delete Group'),
                             ));
                           } else {
-                            items.add(const PopupMenuItem(
+                            items.add(const PopupMenuItem<String>(
                               value: 'leave',
                               child: Text('Leave Group'),
                             ));
@@ -559,20 +565,24 @@ class CreatePage extends StatelessWidget {
   void createGroup(BuildContext context) async {
     String groupName = groupNameController.text.trim();
     String groupNumber = groupNumberController.text.trim();
-
     if (groupName.isEmpty || groupNumber.isEmpty) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Fill all fields')));
       return;
     }
+
     try {
       var url = Uri.parse("https://$SERVER_IP/create_group");
       var response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
-        body: json.encode(
-            {"token": token, "groupName": groupName, "groupNumber": groupNumber}),
+        body: json.encode({
+          "token": token,
+          "groupName": groupName,
+          "groupNumber": groupNumber
+        }),
       );
+
       var data = json.decode(response.body);
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(data['message'])));
@@ -608,8 +618,8 @@ class CreatePage extends StatelessWidget {
             ElevatedButton(
               onPressed: () => createGroup(context),
               child: const Text('CREATE'),
-              style:
-                  ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
+              style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50)),
             )
           ],
         ),
@@ -642,6 +652,7 @@ class JoinPage extends StatelessWidget {
         headers: {"Content-Type": "application/json"},
         body: json.encode({"token": token, "groupNumber": groupNumber}),
       );
+
       var data = json.decode(response.body);
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(data['message'])));
@@ -671,8 +682,8 @@ class JoinPage extends StatelessWidget {
             ElevatedButton(
               onPressed: () => joinGroup(context),
               child: const Text('JOIN'),
-              style:
-                  ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
+              style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50)),
             )
           ],
         ),
@@ -708,7 +719,7 @@ class _EditGroupPageState extends State<EditGroupPage> {
     groupNameController.text = widget.currentGroupName;
   }
 
-  Future updateGroupName() async {
+  Future<void> updateGroupName() async {
     String newGroupName = groupNameController.text.trim();
     if (newGroupName.isEmpty) {
       ScaffoldMessenger.of(context)
@@ -727,6 +738,7 @@ class _EditGroupPageState extends State<EditGroupPage> {
           "newGroupName": newGroupName,
         }),
       );
+
       var data = json.decode(response.body);
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(data['message'])));
@@ -753,8 +765,11 @@ class _EditGroupPageState extends State<EditGroupPage> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            const Text('You can edit the group name.', style: TextStyle(fontSize: 16)),
-            Text('Edits remaining: ${2 - _editCount}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Text('You can edit the group name.',
+                style: TextStyle(fontSize: 16)),
+            Text('Edits remaining: ${2 - _editCount}',
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 20),
             TextField(
               controller: groupNameController,
@@ -781,6 +796,7 @@ class _EditGroupPageState extends State<EditGroupPage> {
 class ProfilePage extends StatefulWidget {
   final String username;
   final String token;
+
   const ProfilePage({Key? key, required this.username, required this.token})
       : super(key: key);
 
@@ -799,7 +815,7 @@ class _ProfilePageState extends State<ProfilePage> {
     fetchProfile();
   }
 
-  Future fetchProfile() async {
+  Future<void> fetchProfile() async {
     try {
       var url = Uri.parse("https://$SERVER_IP/profile");
       var response = await http.post(
@@ -807,6 +823,7 @@ class _ProfilePageState extends State<ProfilePage> {
         headers: {"Content-Type": "application/json"},
         body: json.encode({"token": widget.token}),
       );
+
       var data = json.decode(response.body);
       if (data['success']) {
         setState(() {
@@ -827,7 +844,8 @@ class _ProfilePageState extends State<ProfilePage> {
       var url = Uri.parse("https://$SERVER_IP/update_profile");
       var response = await http.post(url,
           headers: {"Content-Type": "application/json"},
-          body: json.encode({"token": widget.token, "newName": nameController.text}));
+          body: json.encode(
+              {"token": widget.token, "newName": nameController.text}));
       var data = json.decode(response.body);
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(data['message'])));
@@ -841,11 +859,10 @@ class _ProfilePageState extends State<ProfilePage> {
   void logout() async {
     await storage.delete(key: 'username');
     await storage.delete(key: 'token');
-
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (context) => LoginPage()),
-      (Route route) => false,
+      (Route<dynamic> route) => false,
     );
   }
 
@@ -872,7 +889,8 @@ class _ProfilePageState extends State<ProfilePage> {
                   displayedName != null && displayedName!.isNotEmpty
                       ? displayedName![0].toUpperCase()
                       : '',
-                  style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold)),
+                  style: const TextStyle(
+                      fontSize: 40, fontWeight: FontWeight.bold)),
             ),
             const SizedBox(height: 20),
             TextField(
@@ -884,7 +902,8 @@ class _ProfilePageState extends State<ProfilePage> {
             ElevatedButton(
               onPressed: updateProfile,
               child: const Text('UPDATE'),
-              style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
+              style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50)),
             )
           ],
         ),
@@ -896,6 +915,7 @@ class _ProfilePageState extends State<ProfilePage> {
 // ---------------- PROFILE IMAGE WIDGET ----------------
 class ProfileImage extends StatelessWidget {
   final String username;
+
   const ProfileImage({Key? key, required this.username}) : super(key: key);
 
   @override
@@ -964,7 +984,7 @@ class _ChatPageState extends State<ChatPage> {
     });
   }
 
-  Future fetchMessages() async {
+  Future<void> fetchMessages() async {
     try {
       var url = Uri.parse("https://$SERVER_IP/get_messages/${widget.groupNumber}");
       var response = await http.post(
@@ -972,12 +992,12 @@ class _ChatPageState extends State<ChatPage> {
         headers: {"Content-Type": "application/json"},
         body: json.encode({"token": widget.token}),
       );
-      var data = json.decode(response.body);
 
+      var data = json.decode(response.body);
       if (data['success']) {
         if (mounted) {
           setState(() {
-            messages = List<Map<String, dynamic>>.from(data['messages'] as List<dynamic>);
+            messages = List<Map<String, dynamic>>.from(data['messages'].cast<Map<String, dynamic>>());
           });
           _scrollToBottom();
         }
@@ -989,7 +1009,7 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  Future sendMessage() async {
+  Future<void> sendMessage() async {
     String text = messageController.text.trim();
     if (text.isEmpty) return;
 
@@ -1005,6 +1025,7 @@ class _ChatPageState extends State<ChatPage> {
           "token": widget.token,
         }),
       );
+
       var data = json.decode(response.body);
       if (data['success']) {
         messageController.clear();
@@ -1046,7 +1067,6 @@ class _ChatPageState extends State<ChatPage> {
                 itemBuilder: (context, index) {
                   var msg = messages[index];
                   bool isMe = (msg['sender_username'] as String) == widget.username;
-
                   return Container(
                     margin: const EdgeInsets.symmetric(vertical: 5),
                     alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
@@ -1059,7 +1079,8 @@ class _ChatPageState extends State<ChatPage> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
-                        crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                        crossAxisAlignment:
+                            isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                         children: [
                           Text(
                             msg['user'] as String,
