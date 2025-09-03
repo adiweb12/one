@@ -13,8 +13,7 @@ dependencies:
 
   cupertino_icons: ^1.0.8
   http: ^1.1.0
-  # 👇 Add this line for secure storage
-  flutter_secure_storage: ^9.0.0
+  flutter_secure_storage: ^9.0.0   # 🔑 For login/session storage
 
 dev_dependencies:
   flutter_test:
@@ -25,9 +24,11 @@ dev_dependencies:
 
 flutter_launcher_icons:
   android: true
-  ios: false
-  image_path: "image/logo.png"
+  ios: true   # 👉 iOS support ഉം enable ചെയ്യുന്നത് നല്ലത്
+  image_path: "assets/logo.png"   # 👉 സാധാരണ assets folder ആണ് ഉപയോഗിക്കുന്നത്
 
 flutter:
   uses-material-design: true
-  
+
+  assets:
+    - assets/logo.png   # 👉 logo add ചെയ്താൽ register ചെയ്യണം
