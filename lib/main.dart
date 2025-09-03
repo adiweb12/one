@@ -67,7 +67,7 @@ class _LoginPageState extends State<LoginPage> {
 
     if (username.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Please enter username and password')));
+          const SnackBar(content: Text('Please enter username and password')));
       return;
     }
     setState(() => _isLoading = true);
@@ -83,7 +83,6 @@ class _LoginPageState extends State<LoginPage> {
         String token = data['token'];
         await storage.write(key: 'username', value: username);
         await storage.write(key: 'token', value: token);
-
         Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -108,7 +107,7 @@ class _LoginPageState extends State<LoginPage> {
         child: SingleChildScrollView(
           child: Container(
             width: 350,
-            padding: EdgeInsets.all(20),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
@@ -122,36 +121,36 @@ class _LoginPageState extends State<LoginPage> {
                       fontSize: 28,
                       fontWeight: FontWeight.bold),
                 ),
-                SizedBox(height: 30),
+                const SizedBox(height: 30),
                 TextField(
                   controller: usernameController,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     hintText: 'username123',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.person),
                   ),
                 ),
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
                 TextField(
                   controller: passwordController,
                   obscureText: true,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     hintText: '123u%^gkf',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.lock),
                   ),
                 ),
-                SizedBox(height: 30),
+                const SizedBox(height: 30),
                 _isLoading
-                    ? CircularProgressIndicator()
+                    ? const CircularProgressIndicator()
                     : SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
                           onPressed: login,
-                          child: Text('LOGIN'),
+                          child: const Text('LOGIN'),
                         ),
                       ),
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
                 TextButton(
                   onPressed: () {
                     Navigator.push(
@@ -192,7 +191,7 @@ class _SignUpPageState extends State<SignUpPage> {
 
     if (username.isEmpty || password.isEmpty || name.isEmpty) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Please fill all fields')));
+          .showSnackBar(const SnackBar(content: Text('Please fill all fields')));
       return;
     }
     setState(() => _isLoading = true);
@@ -222,14 +221,14 @@ class _SignUpPageState extends State<SignUpPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Center(child: Text('SIGN UP')),
+        title: const Center(child: Text('SIGN UP')),
         backgroundColor: Colors.blue[900],
       ),
       body: Center(
         child: SingleChildScrollView(
           child: Container(
             width: 350,
-            padding: EdgeInsets.all(20),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
@@ -244,42 +243,42 @@ class _SignUpPageState extends State<SignUpPage> {
                       fontSize: 24,
                       fontWeight: FontWeight.bold),
                 ),
-                SizedBox(height: 30),
+                const SizedBox(height: 30),
                 TextField(
                   controller: nameController,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Full Name',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.badge),
                   ),
                 ),
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
                 TextField(
                   controller: usernameController,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Username',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.person),
                   ),
                 ),
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
                 TextField(
                   controller: passwordController,
                   obscureText: true,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Password',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.lock),
                   ),
                 ),
-                SizedBox(height: 30),
+                const SizedBox(height: 30),
                 _isLoading
-                    ? CircularProgressIndicator()
+                    ? const CircularProgressIndicator()
                     : SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
                           onPressed: signUp,
-                          child: Text('SIGN UP'),
+                          child: const Text('SIGN UP'),
                         ),
                       ),
               ],
@@ -312,7 +311,7 @@ class _MainPageState extends State<MainPage> {
     fetchGroupsAndProfile();
   }
 
-  Future<void> fetchGroupsAndProfile() async {
+  Future fetchGroupsAndProfile() async {
     try {
       var url = Uri.parse("https://$SERVER_IP/profile");
       var response = await http.post(
@@ -329,12 +328,9 @@ class _MainPageState extends State<MainPage> {
       }
       var data = json.decode(response.body);
       if (data['success']) {
-        List<dynamic> userGroups = data['groups'] ?? [];
+        List userGroups = data['groups'] ?? [];
         setState(() {
-          groups = userGroups
-              .map<Map<String, dynamic>>(
-                  (g) => {"name": g['name'], "number": g['number'], "admin": g['admin']})
-              .toList();
+          groups = List<Map<String, dynamic>>.from(userGroups);
           displayedName = data['name'];
         });
       }
@@ -346,9 +342,9 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
-  Future<void> refreshGroups() async => fetchGroupsAndProfile();
+  Future refreshGroups() async => fetchGroupsAndProfile();
 
-  Future<void> deleteGroup(String groupNumber) async {
+  Future deleteGroup(String groupNumber) async {
     try {
       var url = Uri.parse("https://$SERVER_IP/delete_group");
       var response = await http.post(
@@ -372,7 +368,7 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
-  Future<void> leaveGroup(String groupNumber) async {
+  Future leaveGroup(String groupNumber) async {
     try {
       var url = Uri.parse("https://$SERVER_IP/leave_group");
       var response = await http.post(
@@ -401,7 +397,7 @@ class _MainPageState extends State<MainPage> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.blue[900],
-        title: Center(child: Text('ONE')),
+        title: const Center(child: Text('ONE')),
         actions: [
           InkWell(
             onTap: () async {
@@ -414,7 +410,7 @@ class _MainPageState extends State<MainPage> {
               await refreshGroups();
             },
             child: Padding(
-              padding: EdgeInsets.all(8.0),
+              padding: const EdgeInsets.all(8.0),
               child: ProfileImage(username: widget.username),
             ),
           ),
@@ -424,10 +420,10 @@ class _MainPageState extends State<MainPage> {
         onRefresh: refreshGroups,
         child: groups.isEmpty
             ? ListView(
-                children: [SizedBox(height: 100), Center(child: Text('No groups yet'))],
+                children: const [SizedBox(height: 100), Center(child: Text('No groups yet'))],
               )
             : ListView.builder(
-                padding: EdgeInsets.all(20),
+                padding: const EdgeInsets.all(20),
                 itemCount: groups.length,
                 itemBuilder: (context, index) {
                   var group = groups[index];
@@ -436,16 +432,17 @@ class _MainPageState extends State<MainPage> {
                     child: ListTile(
                       title: Text(group['name'] as String),
                       subtitle: Text("Group Number: ${group['number']}"),
-                      trailing: PopupMenuButton<String>(
+                      trailing: PopupMenuButton(
                         onSelected: (String result) {
                           if (result == 'edit') {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                  builder: (context) => EditGroupPage(
-                                      groupNumber: group['number'],
-                                      currentGroupName: group['name'],
-                                      token: widget.token)),
+                                builder: (context) => EditGroupPage(
+                                    groupNumber: group['number'],
+                                    currentGroupName: group['name'],
+                                    token: widget.token),
+                              ),
                             ).then((value) {
                               if (value == true) {
                                 refreshGroups();
@@ -460,16 +457,16 @@ class _MainPageState extends State<MainPage> {
                         itemBuilder: (BuildContext context) {
                           List<PopupMenuEntry<String>> items = [];
                           if (isGroupAdmin) {
-                            items.add(PopupMenuItem<String>(
+                            items.add(const PopupMenuItem(
                               value: 'edit',
                               child: Text('Edit Group'),
                             ));
-                            items.add(PopupMenuItem<String>(
+                            items.add(const PopupMenuItem(
                               value: 'delete',
                               child: Text('Delete Group'),
                             ));
                           } else {
-                            items.add(PopupMenuItem<String>(
+                            items.add(const PopupMenuItem(
                               value: 'leave',
                               child: Text('Leave Group'),
                             ));
@@ -501,7 +498,7 @@ class _MainPageState extends State<MainPage> {
           await showDialog(
             context: context,
             builder: (BuildContext dialogContext) => AlertDialog(
-              title: Text('GROUP OPTION'),
+              title: const Text('GROUP OPTION'),
               actions: [
                 TextButton(
                   onPressed: () async {
@@ -514,7 +511,7 @@ class _MainPageState extends State<MainPage> {
                     );
                     await refreshGroups();
                   },
-                  child: Text('Create New One'),
+                  child: const Text('Create New One'),
                 ),
                 TextButton(
                   onPressed: () async {
@@ -527,13 +524,13 @@ class _MainPageState extends State<MainPage> {
                     );
                     await refreshGroups();
                   },
-                  child: Text('Join Existing'),
+                  child: const Text('Join Existing'),
                 ),
               ],
             ),
           );
         },
-        child: Icon(Icons.add),
+        child: const Icon(Icons.add),
         backgroundColor: Colors.blue[900],
       ),
     );
@@ -556,7 +553,7 @@ class CreatePage extends StatelessWidget {
 
     if (groupName.isEmpty || groupNumber.isEmpty) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Fill all fields')));
+          .showSnackBar(const SnackBar(content: Text('Fill all fields')));
       return;
     }
     try {
@@ -581,29 +578,29 @@ class CreatePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-          title: Center(child: Text('CREATE GROUP')),
+          title: const Center(child: Text('CREATE GROUP')),
           backgroundColor: Colors.blue[900]),
       body: Padding(
-        padding: EdgeInsets.all(15),
+        padding: const EdgeInsets.all(15),
         child: Column(
           children: [
             TextField(
               controller: groupNameController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                   labelText: 'GROUP NAME', border: OutlineInputBorder()),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             TextField(
               controller: groupNumberController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                   labelText: 'GROUP NUMBER', border: OutlineInputBorder()),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () => createGroup(context),
-              child: Text('CREATE'),
+              child: const Text('CREATE'),
               style:
-                  ElevatedButton.styleFrom(minimumSize: Size(double.infinity, 50)),
+                  ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
             )
           ],
         ),
@@ -625,7 +622,7 @@ class JoinPage extends StatelessWidget {
     String groupNumber = groupNumberController.text.trim();
     if (groupNumber.isEmpty) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Enter group number')));
+          .showSnackBar(const SnackBar(content: Text('Enter group number')));
       return;
     }
 
@@ -650,23 +647,23 @@ class JoinPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-          title: Center(child: Text('JOIN GROUP')),
+          title: const Center(child: Text('JOIN GROUP')),
           backgroundColor: Colors.blue[900]),
       body: Padding(
-        padding: EdgeInsets.all(15),
+        padding: const EdgeInsets.all(15),
         child: Column(
           children: [
             TextField(
               controller: groupNumberController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                   labelText: 'GROUP NUMBER', border: OutlineInputBorder()),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () => joinGroup(context),
-              child: Text('JOIN'),
+              child: const Text('JOIN'),
               style:
-                  ElevatedButton.styleFrom(minimumSize: Size(double.infinity, 50)),
+                  ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
             )
           ],
         ),
@@ -700,20 +697,13 @@ class _EditGroupPageState extends State<EditGroupPage> {
   void initState() {
     super.initState();
     groupNameController.text = widget.currentGroupName;
-    // You could fetch the edit count from the backend here if you were storing it per group
   }
 
-  Future<void> updateGroupName() async {
+  Future updateGroupName() async {
     String newGroupName = groupNameController.text.trim();
     if (newGroupName.isEmpty) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Enter new group name')));
-      return;
-    }
-
-    if (_editCount >= 2) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Group name can only be edited twice.')));
+          .showSnackBar(const SnackBar(content: Text('Enter new group name')));
       return;
     }
 
@@ -747,29 +737,29 @@ class _EditGroupPageState extends State<EditGroupPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('EDIT GROUP'),
+        title: const Text('EDIT GROUP'),
         backgroundColor: Colors.blue[900],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            Text('You can edit the group name.', style: TextStyle(fontSize: 16)),
-            Text('Edits remaining: ${2 - _editCount}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            SizedBox(height: 20),
+            const Text('You can edit the group name.', style: TextStyle(fontSize: 16)),
+            Text('Edits remaining: ${2 - _editCount}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
             TextField(
               controller: groupNameController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'New Group Name',
                 border: OutlineInputBorder(),
               ),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             ElevatedButton(
               onPressed: updateGroupName,
-              child: Text('UPDATE NAME'),
+              child: const Text('UPDATE NAME'),
               style: ElevatedButton.styleFrom(
-                  minimumSize: Size(double.infinity, 50)),
+                  minimumSize: const Size(double.infinity, 50)),
             )
           ],
         ),
@@ -800,7 +790,7 @@ class _ProfilePageState extends State<ProfilePage> {
     fetchProfile();
   }
 
-  Future<void> fetchProfile() async {
+  Future fetchProfile() async {
     try {
       var url = Uri.parse("https://$SERVER_IP/profile");
       var response = await http.post(
@@ -816,7 +806,6 @@ class _ProfilePageState extends State<ProfilePage> {
         });
       }
     } catch (e) {
-      print("Error fetching profile: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error fetching profile: $e')));
@@ -855,17 +844,17 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('PROFILE'),
+        title: const Text('PROFILE'),
         backgroundColor: Colors.blue[900],
         actions: [
           IconButton(
-            icon: Icon(Icons.logout, color: Colors.white),
+            icon: const Icon(Icons.logout, color: Colors.white),
             onPressed: logout,
           ),
         ],
       ),
       body: Padding(
-        padding: EdgeInsets.all(15),
+        padding: const EdgeInsets.all(15),
         child: Column(
           children: [
             CircleAvatar(
@@ -874,20 +863,19 @@ class _ProfilePageState extends State<ProfilePage> {
                   displayedName != null && displayedName!.isNotEmpty
                       ? displayedName![0].toUpperCase()
                       : '',
-                  style:
-                      TextStyle(fontSize: 40, fontWeight: FontWeight.bold)),
+                  style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold)),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             TextField(
               controller: nameController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                   labelText: 'NAME', border: OutlineInputBorder()),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             ElevatedButton(
               onPressed: updateProfile,
-              child: Text('UPDATE'),
-              style: ElevatedButton.styleFrom(minimumSize: Size(double.infinity, 50)),
+              child: const Text('UPDATE'),
+              style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
             )
           ],
         ),
@@ -948,7 +936,7 @@ class _ChatPageState extends State<ChatPage> {
     fetchMessages().then((_) {
       _scrollToBottom();
     });
-    _timer = Timer.periodic(Duration(seconds: 3), (Timer t) => fetchMessages());
+    _timer = Timer.periodic(const Duration(seconds: 3), (Timer t) => fetchMessages());
   }
 
   @override
@@ -967,7 +955,7 @@ class _ChatPageState extends State<ChatPage> {
     });
   }
 
-  Future<void> fetchMessages() async {
+  Future fetchMessages() async {
     try {
       var url = Uri.parse("https://$SERVER_IP/get_messages/${widget.groupNumber}");
       var response = await http.post(
@@ -986,11 +974,13 @@ class _ChatPageState extends State<ChatPage> {
         }
       }
     } catch (e) {
-      print("Error fetching messages: $e");
+      if (mounted) {
+        print("Error fetching messages: $e");
+      }
     }
   }
 
-  Future<void> sendMessage() async {
+  Future sendMessage() async {
     String text = messageController.text.trim();
     if (text.isEmpty) return;
 
@@ -1001,9 +991,8 @@ class _ChatPageState extends State<ChatPage> {
         url,
         headers: {"Content-Type": "application/json"},
         body: json.encode({
-          "username": widget.username,
           "groupNumber": widget.groupNumber,
-          "message": text,
+          "message": text, // Corrected key to 'message'
           "token": widget.token,
         }),
       );
@@ -1043,19 +1032,19 @@ class _ChatPageState extends State<ChatPage> {
               onRefresh: fetchMessages,
               child: ListView.builder(
                 controller: _scrollController,
-                padding: EdgeInsets.all(10),
+                padding: const EdgeInsets.all(10),
                 itemCount: messages.length,
                 itemBuilder: (context, index) {
                   var msg = messages[index];
                   bool isMe = (msg['sender_username'] as String) == widget.username;
 
                   return Container(
-                    margin: EdgeInsets.symmetric(vertical: 5),
+                    margin: const EdgeInsets.symmetric(vertical: 5),
                     alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
                     child: Container(
                       constraints: BoxConstraints(
                           maxWidth: MediaQuery.of(context).size.width * 0.7),
-                      padding: EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
                       decoration: BoxDecoration(
                         color: isMe ? Colors.blue[100] : Colors.grey[300],
                         borderRadius: BorderRadius.circular(12),
@@ -1064,17 +1053,16 @@ class _ChatPageState extends State<ChatPage> {
                         crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                         children: [
                           Text(
-                            msg['sender'] as String,
-                            style: TextStyle(
+                            msg['user'] as String, // Corrected key to 'user'
+                            style: const TextStyle(
                                 fontSize: 12, fontWeight: FontWeight.bold),
                           ),
-                          SizedBox(height: 3),
-                          Text(msg['message'] as String),
+                          const SizedBox(height: 3),
+                          Text(msg['text'] as String), // Corrected key to 'text'
                           if (msg['time'] != null)
                             Text(
                               (msg['time'] as String).substring(11, 16),
-                              style:
-                                  TextStyle(fontSize: 10, color: Colors.black54),
+                              style: const TextStyle(fontSize: 10, color: Colors.black54),
                             ),
                         ],
                       ),
@@ -1085,7 +1073,7 @@ class _ChatPageState extends State<ChatPage> {
             ),
           ),
           Container(
-            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             color: Colors.grey[200],
             child: Row(
               children: [
@@ -1097,19 +1085,19 @@ class _ChatPageState extends State<ChatPage> {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 15),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 15),
                     ),
                   ),
                 ),
-                SizedBox(width: 10),
+                const SizedBox(width: 10),
                 _isLoading
-                    ? CircularProgressIndicator()
+                    ? const CircularProgressIndicator()
                     : ElevatedButton(
                         onPressed: sendMessage,
-                        child: Icon(Icons.send),
+                        child: const Icon(Icons.send),
                         style: ElevatedButton.styleFrom(
-                          shape: CircleBorder(),
-                          padding: EdgeInsets.all(12),
+                          shape: const CircleBorder(),
+                          padding: const EdgeInsets.all(12),
                           backgroundColor: Colors.blue[900],
                         ),
                       ),
@@ -1121,4 +1109,3 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 }
-
