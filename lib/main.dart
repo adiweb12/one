@@ -207,7 +207,7 @@ class _SignUpPageState extends State<SignUpPage> {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(data['message'])));
       if (data['success']) {
-        Navigator.pop(context); // Go back to login page
+        Navigator.pop(context);
       }
     } catch (e) {
       ScaffoldMessenger.of(context)
@@ -420,7 +420,10 @@ class _MainPageState extends State<MainPage> {
         onRefresh: refreshGroups,
         child: groups.isEmpty
             ? ListView(
-                children: const [SizedBox(height: 100), Center(child: Text('No groups yet'))],
+                children: const [
+                  SizedBox(height: 100),
+                  Center(child: Text('No groups yet'))
+                ],
               )
             : ListView.builder(
                 padding: const EdgeInsets.all(20),
@@ -508,8 +511,11 @@ class _MainPageState extends State<MainPage> {
                       MaterialPageRoute(
                           builder: (context) => CreatePage(
                               username: widget.username, token: widget.token)),
-                    );
-                    await refreshGroups();
+                    ).then((value) {
+                      if (value == true) {
+                        refreshGroups();
+                      }
+                    });
                   },
                   child: const Text('Create New One'),
                 ),
@@ -521,8 +527,11 @@ class _MainPageState extends State<MainPage> {
                       MaterialPageRoute(
                           builder: (context) => JoinPage(
                               username: widget.username, token: widget.token)),
-                    );
-                    await refreshGroups();
+                    ).then((value) {
+                      if (value == true) {
+                        refreshGroups();
+                      }
+                    });
                   },
                   child: const Text('Join Existing'),
                 ),
@@ -992,7 +1001,7 @@ class _ChatPageState extends State<ChatPage> {
         headers: {"Content-Type": "application/json"},
         body: json.encode({
           "groupNumber": widget.groupNumber,
-          "message": text, // Corrected key to 'message'
+          "message": text,
           "token": widget.token,
         }),
       );
@@ -1053,12 +1062,12 @@ class _ChatPageState extends State<ChatPage> {
                         crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                         children: [
                           Text(
-                            msg['user'] as String, // Corrected key to 'user'
+                            msg['user'] as String,
                             style: const TextStyle(
                                 fontSize: 12, fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 3),
-                          Text(msg['text'] as String), // Corrected key to 'text'
+                          Text(msg['text'] as String),
                           if (msg['time'] != null)
                             Text(
                               (msg['time'] as String).substring(11, 16),
