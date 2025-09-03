@@ -304,14 +304,15 @@ class MainPage extends StatefulWidget {
 
 class _MainPageState extends State<MainPage> {
   List<Map<String, dynamic>> groups = [];
+  String? displayedName;
 
   @override
   void initState() {
     super.initState();
-    fetchGroups();
+    fetchGroupsAndProfile();
   }
 
-  Future<void> fetchGroups() async {
+  Future<void> fetchGroupsAndProfile() async {
     try {
       var url = Uri.parse("https://$SERVER_IP/profile");
       var response = await http.post(
@@ -332,8 +333,9 @@ class _MainPageState extends State<MainPage> {
         setState(() {
           groups = userGroups
               .map<Map<String, dynamic>>(
-                  (g) => {"name": g['name'], "number": g['number']})
+                  (g) => {"name": g['name'], "number": g['number'], "admin": g['admin']})
               .toList();
+          displayedName = data['name'];
         });
       }
     } catch (e) {
@@ -344,7 +346,55 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
-  Future<void> refreshGroups() async => fetchGroups();
+  Future<void> refreshGroups() async => fetchGroupsAndProfile();
+
+  Future<void> deleteGroup(String groupNumber) async {
+    try {
+      var url = Uri.parse("https://$SERVER_IP/delete_group");
+      var response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: json.encode({"token": widget.token, "groupNumber": groupNumber}),
+      );
+      var data = json.decode(response.body);
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(data['message'])));
+        if (data['success']) {
+          await refreshGroups();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error deleting group: $e')));
+      }
+    }
+  }
+
+  Future<void> leaveGroup(String groupNumber) async {
+    try {
+      var url = Uri.parse("https://$SERVER_IP/leave_group");
+      var response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: json.encode({"token": widget.token, "groupNumber": groupNumber}),
+      );
+      var data = json.decode(response.body);
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(data['message'])));
+        if (data['success']) {
+          await refreshGroups();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error leaving group: $e')));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -381,10 +431,52 @@ class _MainPageState extends State<MainPage> {
                 itemCount: groups.length,
                 itemBuilder: (context, index) {
                   var group = groups[index];
+                  bool isGroupAdmin = group['admin'] == widget.username;
                   return Card(
                     child: ListTile(
                       title: Text(group['name'] as String),
                       subtitle: Text("Group Number: ${group['number']}"),
+                      trailing: PopupMenuButton<String>(
+                        onSelected: (String result) {
+                          if (result == 'edit') {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => EditGroupPage(
+                                      groupNumber: group['number'],
+                                      currentGroupName: group['name'],
+                                      token: widget.token)),
+                            ).then((value) {
+                              if (value == true) {
+                                refreshGroups();
+                              }
+                            });
+                          } else if (result == 'delete') {
+                            deleteGroup(group['number']);
+                          } else if (result == 'leave') {
+                            leaveGroup(group['number']);
+                          }
+                        },
+                        itemBuilder: (BuildContext context) {
+                          List<PopupMenuEntry<String>> items = [];
+                          if (isGroupAdmin) {
+                            items.add(PopupMenuItem<String>(
+                              value: 'edit',
+                              child: Text('Edit Group'),
+                            ));
+                            items.add(PopupMenuItem<String>(
+                              value: 'delete',
+                              child: Text('Delete Group'),
+                            ));
+                          } else {
+                            items.add(PopupMenuItem<String>(
+                              value: 'leave',
+                              child: Text('Leave Group'),
+                            ));
+                          }
+                          return items;
+                        },
+                      ),
                       onTap: () {
                         Navigator.push(
                           context,
@@ -394,6 +486,7 @@ class _MainPageState extends State<MainPage> {
                               username: widget.username,
                               groupNumber: group['number'] as String,
                               token: widget.token,
+                              isAdmin: isGroupAdmin,
                             ),
                           ),
                         );
@@ -582,6 +675,109 @@ class JoinPage extends StatelessWidget {
   }
 }
 
+// ---------------- EDIT GROUP PAGE ----------------
+class EditGroupPage extends StatefulWidget {
+  final String groupNumber;
+  final String currentGroupName;
+  final String token;
+
+  const EditGroupPage({
+    Key? key,
+    required this.groupNumber,
+    required this.currentGroupName,
+    required this.token,
+  }) : super(key: key);
+
+  @override
+  _EditGroupPageState createState() => _EditGroupPageState();
+}
+
+class _EditGroupPageState extends State<EditGroupPage> {
+  final TextEditingController groupNameController = TextEditingController();
+  int _editCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    groupNameController.text = widget.currentGroupName;
+    // You could fetch the edit count from the backend here if you were storing it per group
+  }
+
+  Future<void> updateGroupName() async {
+    String newGroupName = groupNameController.text.trim();
+    if (newGroupName.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Enter new group name')));
+      return;
+    }
+
+    if (_editCount >= 2) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Group name can only be edited twice.')));
+      return;
+    }
+
+    try {
+      var url = Uri.parse("https://$SERVER_IP/update_group_name");
+      var response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: json.encode({
+          "token": widget.token,
+          "groupNumber": widget.groupNumber,
+          "newGroupName": newGroupName,
+        }),
+      );
+      var data = json.decode(response.body);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(data['message'])));
+      if (data['success']) {
+        setState(() {
+          _editCount++;
+        });
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('EDIT GROUP'),
+        backgroundColor: Colors.blue[900],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Text('You can edit the group name.', style: TextStyle(fontSize: 16)),
+            Text('Edits remaining: ${2 - _editCount}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            SizedBox(height: 20),
+            TextField(
+              controller: groupNameController,
+              decoration: InputDecoration(
+                labelText: 'New Group Name',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: updateGroupName,
+              child: Text('UPDATE NAME'),
+              style: ElevatedButton.styleFrom(
+                  minimumSize: Size(double.infinity, 50)),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ---------------- PROFILE PAGE ----------------
 class ProfilePage extends StatefulWidget {
   final String username;
@@ -724,6 +920,7 @@ class ChatPage extends StatefulWidget {
   final String username;
   final String groupNumber;
   final String token;
+  final bool isAdmin;
 
   const ChatPage({
     Key? key,
@@ -731,6 +928,7 @@ class ChatPage extends StatefulWidget {
     required this.username,
     required this.groupNumber,
     required this.token,
+    required this.isAdmin,
   }) : super(key: key);
 
   @override
@@ -849,7 +1047,7 @@ class _ChatPageState extends State<ChatPage> {
                 itemCount: messages.length,
                 itemBuilder: (context, index) {
                   var msg = messages[index];
-                  bool isMe = (msg['sender'] as String) == widget.username;
+                  bool isMe = (msg['sender_username'] as String) == widget.username;
 
                   return Container(
                     margin: EdgeInsets.symmetric(vertical: 5),
@@ -923,3 +1121,4 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 }
+
