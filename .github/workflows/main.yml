@@ -1,17 +1,17 @@
-name: Flutter Local Build
- 
+name: Flutter CI
+
 on:
-   push:
+  push:
     branches:
       - main
-   pull_request:
+  pull_request:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout
+      # Checkout repo
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -21,29 +21,43 @@ jobs:
         with:
           flutter-version: '3.24.3'
 
-      # Get dependencies
+      # Install dependencies
       - name: Install dependencies
         run: flutter pub get
 
-      # ⚡ Recreate android/ folder (V2 embedding safe)
+      # ⚡ Recreate android/ folder (fresh each build)
       - name: Regenerate android folder
         run: |
           echo "⚡ Resetting android/ folder"
           rm -rf android
           flutter create . --platforms=android
 
-      # ✨ Patch AndroidManifest.xml
+      # ✅ Patch build.gradle (namespace + SDK versions)
+      - name: Patch build.gradle
+        run: |
+          APP_GRADLE="android/app/build.gradle"
+
+          # Add namespace line under android { if missing
+          sed -i '/android {/a\    namespace "com.example.adhimusic"' $APP_GRADLE
+
+          # Force SDK versions
+          sed -i 's/compileSdkVersion [0-9]\+/compileSdkVersion 35/' $APP_GRADLE
+          sed -i 's/targetSdkVersion [0-9]\+/targetSdkVersion 35/' $APP_GRADLE
+
+          echo "✅ Patched build.gradle"
+
+      # ✅ Patch AndroidManifest.xml (permissions + launcher icon)
       - name: Patch AndroidManifest.xml
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
 
-          # Add permissions
+          # Add INTERNET + storage permissions
           sed -i '/<application/i\
           <uses-permission android:name="android.permission.INTERNET"/>\n\
           <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>\n\
           <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>' $MANIFEST
 
-          # Use custom launcher icon
+          # Set custom launcher icon
           sed -i 's/android:icon="@mipmap\/ic_launcher"/android:icon="@mipmap\/launcher_icon"/' $MANIFEST
 
           echo "✅ Patched AndroidManifest.xml"
