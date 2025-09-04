@@ -42,17 +42,33 @@ jobs:
           sed -i 's/minSdkVersion [0-9]\+/minSdkVersion 21/' $APP_GRADLE || true
           echo "✅ Patched android/app/build.gradle"
 
-      # 6️⃣ Patch all plugin namespaces (AGP 8+ requirement)
-      - name: Patch all plugin namespaces
+      # 6️⃣ Patch all plugin namespaces and SDK versions (AGP 8+ requirement)
+      - name: Patch all plugin namespaces + SDK
         run: |
           find $HOME/.pub-cache -type f -path "*/android/build.gradle" | while read gradle; do
+            # Add namespace if missing
             if ! grep -q "namespace " "$gradle"; then
               pkg=$(basename $(dirname $gradle))
               echo "⚡ Adding namespace to $gradle"
               sed -i "/android {/a\    namespace \"com.plugin.$pkg\"" "$gradle"
             fi
+
+            # Force compileSdkVersion 35, targetSdkVersion 35, minSdkVersion 21
+            if ! grep -q "compileSdkVersion" "$gradle"; then
+              sed -i '/android {/a\    compileSdkVersion 35\n    targetSdkVersion 35\n    minSdkVersion 21' "$gradle"
+            fi
+
+            # Force Kotlin JVM 17
+            if ! grep -q "kotlinOptions" "$gradle"; then
+              sed -i '/android {/a\    kotlinOptions {\n        jvmTarget = "17"\n    }' "$gradle"
+            fi
+
+            # Force Java 17
+            if ! grep -q "compileOptions" "$gradle"; then
+              sed -i '/android {/a\    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n    }' "$gradle"
+            fi
           done
-          echo "✅ Patched all plugin namespaces"
+          echo "✅ Patched all plugin Gradle files with SDK 35 + Kotlin/Java 17"
 
       # 7️⃣ Patch on_audio_query plugin manifest
       - name: Patch on_audio_query plugin manifest
@@ -82,34 +98,18 @@ jobs:
           echo "✅ Forced AGP 8.3.2"
           
           WRAPPER_PROPS="android/gradle/wrapper/gradle-wrapper.properties"
-          sed -i 's/distributionUrl=.*$/distributionUrl=https\:\/\/services.gradle.org\/distributions\/gradle-8.7-bin.zip/' $WRAPPER_PROPS
+          sed -i 's|distributionUrl=.*|distributionUrl=https\://services.gradle.org/distributions/gradle-8.7-bin.zip|' $WRAPPER_PROPS
           echo "✅ Forced Gradle 8.7"
 
-      # 🔟 Patch Java + Kotlin compatibility
-      - name: Patch Gradle Java & Kotlin compatibility
-        run: |
-          APP_GRADLE="android/app/build.gradle"
-          # Java 17 for app
-          sed -i '/android {/a\    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n    }' $APP_GRADLE
-          sed -i '/android {/a\    kotlinOptions {\n        jvmTarget = "17"\n    }' $APP_GRADLE
-          
-          # Java 17 for all plugins
-          find $HOME/.pub-cache -type f -path "*/android/build.gradle" | while read gradle; do
-            echo "⚡ Patching Java+Kotlin for $gradle"
-            sed -i '/android {/a\    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n    }' "$gradle"
-            sed -i '/android {/a\    kotlinOptions {\n        jvmTarget = "17"\n    }' "$gradle"
-          done
-          echo "✅ Forced Java 17 + Kotlin JVM 17 everywhere"
-
-      # 1️⃣1️⃣ Generate launcher icons
+      # 🔟 Generate launcher icons
       - name: Generate launcher icons
         run: flutter pub run flutter_launcher_icons
 
-      # 1️⃣2️⃣ Build release APK
+      # 1️⃣1️⃣ Build release APK
       - name: Build release APK
         run: flutter build apk --release
 
-      # 1️⃣3️⃣ Upload artifact
+      # 1️⃣2️⃣ Upload artifact
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
