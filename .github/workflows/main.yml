@@ -10,6 +10,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    env:
+      ANDROID_HOME: /usr/local/android-sdk
+      PATH: $PATH:/usr/local/android-sdk/cmdline-tools/latest/bin:/usr/local/android-sdk/platform-tools
+
     steps:
       # 1️⃣ Checkout repository
       - name: Checkout repository
@@ -25,46 +29,51 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # 4️⃣ Regenerate android folder (forces V2 embedding)
+      # 4️⃣ Generate Android folder (V2 embedding)
       - name: Regenerate android folder
         run: |
           echo "⚠️ Removing old android/ folder and recreating..."
           rm -rf android
           flutter create . --platforms=android
 
-      # 5️⃣ Patch app build.gradle with namespace + SDK versions
+      # 5️⃣ Install Android SDK 35 + build-tools
+      - name: Install Android SDK 35
+        run: |
+          sudo mkdir -p $ANDROID_HOME/cmdline-tools
+          curl -o commandlinetools.zip https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip
+          unzip -q commandlinetools.zip -d $ANDROID_HOME/cmdline-tools
+          mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+          yes | sdkmanager --sdk_root=$ANDROID_HOME "platforms;android-35" "build-tools;35.0.0"
+
+      # 6️⃣ Patch app-level build.gradle
       - name: Patch app build.gradle
         run: |
           APP_GRADLE="android/app/build.gradle"
           sed -i '/android {/a\    namespace "com.example.adhimusic"' $APP_GRADLE
-          sed -i 's/compileSdkVersion [0-9]\+/compileSdkVersion 35/' $APP_GRADLE || true
-          sed -i 's/targetSdkVersion [0-9]\+/targetSdkVersion 35/' $APP_GRADLE || true
-          sed -i 's/minSdkVersion [0-9]\+/minSdkVersion 21/' $APP_GRADLE || true
-          echo "✅ Patched android/app/build.gradle"
+          sed -i 's/compileSdkVersion [0-9]\+/compileSdkVersion 35/' $APP_GRADLE
+          sed -i 's/targetSdkVersion [0-9]\+/targetSdkVersion 35/' $APP_GRADLE
+          sed -i 's/minSdkVersion [0-9]\+/minSdkVersion 21/' $APP_GRADLE
+          echo "✅ Patched app/build.gradle"
 
-      # 6️⃣ Patch all plugin Gradle files
+      # 7️⃣ Auto-patch all Flutter plugins in pub-cache
       - name: Patch all plugin Gradle files
         run: |
-          find $HOME/.pub-cache -type f -name build.gradle | while read gradle; do
-            if ! grep -q "namespace " "$gradle"; then
-              pkg=$(basename $(dirname $gradle))
-              echo "⚡ Adding namespace to $gradle"
-              sed -i "/android {/a\    namespace \"com.plugin.$pkg\"" "$gradle"
-            fi
-            sed -i 's/compileSdkVersion [0-9]\+/compileSdkVersion 35/' "$gradle" || true
-            sed -i '/android {/a\    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n    }' "$gradle"
-            sed -i '/android {/a\    kotlinOptions {\n        jvmTarget = "17"\n    }' "$gradle"
+          find $HOME/.pub-cache -type f -path "*/android/build.gradle" | while read gradle; do
+              # Add namespace if missing
+              if ! grep -q "namespace " "$gradle"; then
+                  pkg=$(basename $(dirname $gradle))
+                  sed -i "/android {/a\    namespace \"com.plugin.$pkg\"" "$gradle"
+              fi
+              # Set SDK versions
+              sed -i 's/compileSdkVersion [0-9]\+/compileSdkVersion 35/' "$gradle"
+              sed -i 's/targetSdkVersion [0-9]\+/targetSdkVersion 35/' "$gradle" || true
+              sed -i 's/minSdkVersion [0-9]\+/minSdkVersion 21/' "$gradle" || true
+              # Force Java 17 + Kotlin 17
+              sed -i '/android {/a\    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n    }' "$gradle"
+              sed -i '/android {/a\    kotlinOptions {\n        jvmTarget = "17"\n    }' "$gradle"
+              echo "⚡ Patched $gradle"
           done
-          echo "✅ Patched all plugin Gradle files"
-
-      # 7️⃣ Patch on_audio_query plugin manifest
-      - name: Patch on_audio_query plugin manifest
-        run: |
-          MANIFEST="$HOME/.pub-cache/hosted/pub.dev/on_audio_query_android-1.1.0/android/src/main/AndroidManifest.xml"
-          if grep -q 'package=' "$MANIFEST"; then
-            sed -i 's/package="com.lucasjosino.on_audio_query"//' "$MANIFEST"
-            echo "✅ Removed invalid package attribute from on_audio_query_android manifest"
-          fi
+          echo "✅ All plugin Gradle files patched"
 
       # 8️⃣ Patch AndroidManifest.xml (permissions)
       - name: Patch AndroidManifest.xml
