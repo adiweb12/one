@@ -27,40 +27,20 @@ jobs:
           rm -rf android
           flutter create . --platforms=android
 
-      # ✅ Fix app/build.gradle
+      # ✅ Patch app/build.gradle
       - name: Patch app build.gradle
         run: |
           APP_GRADLE="android/app/build.gradle"
 
-          # Add namespace if not present
-          if ! grep -q "namespace " $APP_GRADLE; then
-            sed -i '/android {/a\    namespace "com.example.adhimusic"' $APP_GRADLE
-          fi
+          # Insert namespace right under "android {"
+          sed -i '/android {/a\    namespace "com.example.adhimusic"' $APP_GRADLE
 
           # Force SDK versions
           sed -i 's/compileSdkVersion [0-9]\+/compileSdkVersion 35/' $APP_GRADLE || true
           sed -i 's/targetSdkVersion [0-9]\+/targetSdkVersion 35/' $APP_GRADLE || true
+          sed -i 's/minSdkVersion [0-9]\+/minSdkVersion 21/' $APP_GRADLE || true
 
           echo "✅ Patched android/app/build.gradle"
-
-      # ✅ Fix project build.gradle (root)
-      - name: Patch project build.gradle
-        run: |
-          PROJECT_GRADLE="android/build.gradle"
-
-          # Ensure namespace for root project (some plugins rely on it)
-          if ! grep -q "namespace " $PROJECT_GRADLE; then
-            echo '
-           allprojects {
-             afterEvaluate { project ->
-              if (project.plugins.hasPlugin("com.android.library") && !project.android.hasProperty("namespace")) {
-            project.android.namespace = project.group.toString()
-             }
-           }
-           }' >> $PROJECT_GRADLE
-          fi
-
-          echo "✅ Patched android/build.gradle"
 
       # ✅ Patch AndroidManifest.xml
       - name: Patch AndroidManifest.xml
