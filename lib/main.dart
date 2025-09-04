@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'login.dart';
+import 'profile.dart';
 import 'groups.dart';
 
 void main() {
@@ -35,14 +36,12 @@ class MyApp extends StatelessWidget {
               body: Center(child: CircularProgressIndicator()),
             );
           }
-
           if (snapshot.hasData && snapshot.data!.isNotEmpty) {
             return GroupsPage(
               username: snapshot.data?['username'] ?? "",
               token: snapshot.data?['token'] ?? "",
             );
           }
-
           return LoginPage();
         },
       ),
