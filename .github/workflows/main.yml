@@ -25,14 +25,14 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # 4️⃣ Regenerate android folder (forces V2 embedding)
+      # 4️⃣ Regenerate android folder
       - name: Regenerate android folder
         run: |
           echo "⚠️ Removing old android/ folder and recreating..."
           rm -rf android
           flutter create . --platforms=android
 
-      # 5️⃣ Patch app/build.gradle (namespace + SDK versions)
+      # 5️⃣ Patch app/build.gradle with namespace + SDK versions
       - name: Patch app build.gradle
         run: |
           APP_GRADLE="android/app/build.gradle"
@@ -42,25 +42,33 @@ jobs:
           sed -i 's/minSdkVersion [0-9]\+/minSdkVersion 21/' $APP_GRADLE || true
           echo "✅ Patched android/app/build.gradle"
 
-      # 6️⃣ Patch plugin namespaces
-      - name: Patch plugin namespaces
+      # 6️⃣ Patch all plugin Gradle files in pub-cache
+      - name: Patch all plugin Gradle files
         run: |
           find $HOME/.pub-cache -type f -path "*/android/build.gradle" | while read gradle; do
+            echo "⚡ Patching $gradle"
+            # Add namespace if missing
             if ! grep -q "namespace " "$gradle"; then
               pkg=$(basename $(dirname $gradle))
-              echo "⚡ Adding namespace to $gradle"
               sed -i "/android {/a\    namespace \"com.plugin.$pkg\"" "$gradle"
             fi
+            # Add Java 17 + Kotlin 17
+            sed -i '/android {/a\    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n    }' "$gradle" || true
+            sed -i '/android {/a\    kotlinOptions {\n        jvmTarget = "17"\n    }' "$gradle" || true
+            # Set compileSdkVersion 35 if missing
+            if ! grep -q "compileSdkVersion" "$gradle"; then
+              sed -i "/android {/a\    compileSdkVersion 35" "$gradle"
+            fi
           done
-          echo "✅ Patched plugin namespaces"
+          echo "✅ Patched all plugin Gradle files"
 
-      # 7️⃣ Fix on_audio_query plugin manifest
+      # 7️⃣ Patch on_audio_query plugin manifest (remove invalid package)
       - name: Patch on_audio_query plugin manifest
         run: |
           MANIFEST="$HOME/.pub-cache/hosted/pub.dev/on_audio_query_android-1.1.0/android/src/main/AndroidManifest.xml"
           if grep -q 'package=' "$MANIFEST"; then
             sed -i 's/package="com.lucasjosino.on_audio_query"//' "$MANIFEST"
-            echo "✅ Removed invalid package attribute from on_audio_query_android manifest"
+            echo "✅ Patched on_audio_query manifest"
           fi
 
       # 8️⃣ Patch AndroidManifest.xml (permissions + custom icon)
@@ -79,37 +87,20 @@ jobs:
         run: |
           ROOT_GRADLE="android/build.gradle"
           sed -i 's/com.android.tools.build:gradle:[0-9.]\+/com.android.tools.build:gradle:8.3.2/' $ROOT_GRADLE || true
-          echo "✅ Forced AGP 8.3.2"
-
+          
           WRAPPER_PROPS="android/gradle/wrapper/gradle-wrapper.properties"
           sed -i 's|distributionUrl=.*$|distributionUrl=https\://services.gradle.org/distributions/gradle-8.7-bin.zip|' $WRAPPER_PROPS
-          echo "✅ Forced Gradle 8.7"
+          echo "✅ Forced Gradle 8.7 + AGP 8.3.2"
 
-      # 🔟 Fix Java + Kotlin JVM version mismatch
-      - name: Patch Gradle Java & Kotlin compatibility
-        run: |
-          # App module
-          APP_GRADLE="android/app/build.gradle"
-          sed -i '/android {/a\    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n    }' $APP_GRADLE
-          sed -i '/android {/a\    kotlinOptions {\n        jvmTarget = "17"\n    }' $APP_GRADLE
-
-          # All plugin modules
-          find $HOME/.pub-cache -type f -path "*/android/build.gradle" | while read gradle; do
-            echo "⚡ Patching Java+Kotlin for $gradle"
-            sed -i '/android {/a\    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n    }' "$gradle"
-            sed -i '/android {/a\    kotlinOptions {\n        jvmTarget = "17"\n    }' "$gradle"
-          done
-          echo "✅ Forced Java 17 + Kotlin JVM 17 everywhere"
-
-      # 1️⃣1️⃣ Generate launcher icons
+      # 🔟 Generate launcher icons
       - name: Generate launcher icons
         run: flutter pub run flutter_launcher_icons
 
-      # 1️⃣2️⃣ Build APK
+      # 1️⃣1️⃣ Build APK
       - name: Build release APK
         run: flutter build apk --release
 
-      # 1️⃣3️⃣ Upload APK artifact
+      # 1️⃣2️⃣ Upload APK artifact
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
