@@ -27,12 +27,5 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^2.0.0
 
-  flutter_launcher_icons: ^0.13.1
-
-  flutter_launcher_icons:
-  android: true
-  ios: false  # 👉 iOS support ഉം enable ചെയ്യുന്നത് നല്ലത്
-  image_path: "assets/logo.png"   # 👉 സാധാരണ 
-
 flutter:
   uses-material-design: true
