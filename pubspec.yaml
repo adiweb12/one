@@ -1,37 +1,35 @@
-name: chat_app
-description: A Flutter chat app with username/password login and chat rooms.
-publish_to: 'none' # Remove this line if you plan to publish
+name: adhimusic
+description: A simple and attractive Flutter music player app.
+publish_to: "none" # Remove if you plan to publish
+
 version: 1.0.0+1
 
 environment:
-  sdk: ">=3.0.0 <4.0.0"
+  sdk: ">=2.18.0 <4.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
 
-  # HTTP requests
-  http: ^1.1.0
+  # Music query (fetch songs, albums, artists)
+  on_audio_query: ^2.9.0
 
-  # Socket.IO client
-  socket_io_client: ^2.0.0
+  # Audio playback
+  audioplayers: ^6.1.0
 
-  # State management (optional, Flutter's built-in setState is enough here)
-  provider: ^6.0.5
+  # Permissions (for Android storage/music access)
+  permission_handler: ^11.3.1
 
-  # Other useful Flutter packages
-  cupertino_icons: ^1.0.5
+  # Icons & UI
+  cupertino_icons: ^1.0.8
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^2.0.0
-  flutter_launcher_icons: ^0.13.1  # <- Added here
+  flutter_lints: ^4.0.0
 
 flutter:
   uses-material-design: true
 
-flutter_launcher_icons:
-  android: true
-  ios: false  # 👉 Enable iOS support if needed
-  image_path: "assets/logo.png"  # 👉 Path to your app icon
+  assets:
+    - assets/logo.png
