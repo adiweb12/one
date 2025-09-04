@@ -1,4 +1,4 @@
-name: Flutter CI
+name: Flutter Local Build
 
 on:
   workflow_dispatch:
