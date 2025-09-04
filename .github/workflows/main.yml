@@ -51,13 +51,13 @@ jobs:
           # Ensure namespace for root project (some plugins rely on it)
           if ! grep -q "namespace " $PROJECT_GRADLE; then
             echo '
-allprojects {
-    afterEvaluate { project ->
-        if (project.plugins.hasPlugin("com.android.library") && !project.android.hasProperty("namespace")) {
+           allprojects {
+             afterEvaluate { project ->
+              if (project.plugins.hasPlugin("com.android.library") && !project.android.hasProperty("namespace")) {
             project.android.namespace = project.group.toString()
-        }
-    }
-}' >> $PROJECT_GRADLE
+             }
+           }
+           }' >> $PROJECT_GRADLE
           fi
 
           echo "✅ Patched android/build.gradle"
