@@ -7,7 +7,7 @@ void main() {
   runApp(ChatApp());
 }
 
-const String SERVER_IP = "http://10.0.2.2:5000"; // Change to your server IP
+const String SERVER_IP = "https://test-4udw.onrender.com"; // Change to your server IP
 
 class ChatApp extends StatelessWidget {
   @override
