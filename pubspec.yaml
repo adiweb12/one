@@ -28,8 +28,19 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^4.0.0
 
+  # ✅ Needed for generating launcher icons
+  flutter_launcher_icons: ^0.13.1
+
 flutter:
   uses-material-design: true
 
   assets:
     - assets/logo.png
+
+# ✅ Launcher icon configuration
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/logo.png"
+  adaptive_icon_background: "#6D83F2"
+  adaptive_icon_foreground: "assets/logo.png"
