@@ -85,6 +85,16 @@ jobs:
           sed -i 's/distributionUrl=.*$/distributionUrl=https\:\/\/services.gradle.org\/distributions\/gradle-8.7-bin.zip/' $WRAPPER_PROPS
           echo "✅ Forced Gradle 8.7"
 
+      # ✅ Fix Kotlin + Java JVM target mismatch (force Java 17 everywhere)
+      - name: Patch Gradle Java & Kotlin compatibility
+        run: |
+          APP_GRADLE="android/app/build.gradle"
+          # Add Java 17 compatibility
+          sed -i '/android {/a\    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n    }' $APP_GRADLE
+          # Add Kotlin JVM target 17
+          sed -i '/android {/a\    kotlinOptions {\n        jvmTarget = "17"\n    }' $APP_GRADLE
+          echo "✅ Forced Kotlin & Java to use JVM 17"
+
       # ✅ Generate launcher icons
       - name: Generate launcher icons
         run: flutter pub run flutter_launcher_icons
