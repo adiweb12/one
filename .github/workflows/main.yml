@@ -21,15 +21,15 @@ jobs:
         with:
           flutter-version: '3.24.3'
 
-      # 3️⃣ Install Android SDK 35 + build-tools
+      # 3️⃣ Install Android SDK 35 + build-tools (in home directory)
       - name: Install Android SDK 35
         run: |
-          sudo mkdir -p /usr/local/android-sdk/cmdline-tools
-          curl -o commandlinetools.zip https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-          unzip commandlinetools.zip -d /usr/local/android-sdk/cmdline-tools
-          yes | /usr/local/android-sdk/cmdline-tools/cmdline-tools/bin/sdkmanager --sdk_root=/usr/local/android-sdk "platforms;android-35" "build-tools;35.0.1" "platform-tools"
-          echo "ANDROID_HOME=/usr/local/android-sdk" >> $GITHUB_ENV
-          echo "PATH=$PATH:/usr/local/android-sdk/platform-tools:/usr/local/android-sdk/cmdline-tools/cmdline-tools/bin" >> $GITHUB_ENV
+          mkdir -p $HOME/android-sdk/cmdline-tools
+          curl -o $HOME/cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip -q $HOME/cmdline-tools.zip -d $HOME/android-sdk/cmdline-tools
+          yes | $HOME/android-sdk/cmdline-tools/cmdline-tools/bin/sdkmanager --sdk_root=$HOME/android-sdk "platforms;android-35" "build-tools;35.0.1" "platform-tools"
+          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "PATH=$HOME/android-sdk/platform-tools:$HOME/android-sdk/cmdline-tools/cmdline-tools/bin:$PATH" >> $GITHUB_ENV
 
       # 4️⃣ Install dependencies
       - name: Install dependencies
