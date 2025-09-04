@@ -1,34 +1,38 @@
-name: One
-description: A Flutter project for login, group creation, and profile pages.
-publish_to: "none"
-
+name: chat_app
+description: A Flutter chat app with username/password login and chat rooms.
+publish_to: 'none' # Remove this line if you plan to publish
 version: 1.0.0+1
 
 environment:
-  sdk: ">=2.18.0 <4.0.0"
+  sdk: ">=3.0.0 <4.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
 
-  cupertino_icons: ^1.0.8
+  # HTTP requests
   http: ^1.1.0
-  flutter_secure_storage: ^9.0.0   # 🔑 For login/session storage
+
+  # Socket.IO client
+  socket_io_client: ^2.0.0
+
+  # State management (optional, Flutter's built-in setState is enough here)
+  provider: ^6.0.5
+
+  # Other useful Flutter packages
+  cupertino_icons: ^1.0.5
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_lints: ^2.0.0
 
-  flutter_lints: ^3.0.1
   flutter_launcher_icons: ^0.13.1
 
-flutter_launcher_icons:
+  flutter_launcher_icons:
   android: true
   ios: false  # 👉 iOS support ഉം enable ചെയ്യുന്നത് നല്ലത്
-  image_path: "assets/logo.png"   # 👉 സാധാരണ assets folder ആണ് ഉപയോഗിക്കുന്നത്
+  image_path: "assets/logo.png"   # 👉 സാധാരണ 
 
 flutter:
   uses-material-design: true
-
-  assets:
-    - assets/logo.png   # 👉 logo add ചെയ്താൽ register ചെയ്യണം
