@@ -5,15 +5,15 @@ publish_to: "none"
 version: 1.0.0+1
 
 environment:
-  sdk: ">=2.19.0 <3.0.0"
+  sdk: ">=3.0.0 <4.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
 
-  # Audio playback
-  just_audio: ^0.9.45
-  audio_session: ^0.1.8
+  # Audio playback (compatible with Dart 3.0.6)
+  just_audio: ^0.9.35
+  audio_session: ^0.1.13
   just_audio_background: ^0.0.1-beta.12
 
   # File picker for local audio
@@ -23,9 +23,9 @@ dependencies:
   permission_handler: ^11.3.1
 
   # UI
-  cupertino_icons: ^1.0.5
+  cupertino_icons: ^1.0.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^2.0.0
+  flutter_lints: ^2.0.3
