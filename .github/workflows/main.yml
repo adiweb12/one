@@ -1,9 +1,8 @@
-name: Flutter CI
+name: Flutter Build APK
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
 
 jobs:
@@ -11,60 +10,48 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout repository
-      - name: Checkout Repo
-        uses: actions/checkout@v4
+      # 1️⃣ Checkout code
+      - uses: actions/checkout@v4
 
       # 2️⃣ Setup Flutter
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: flutter/flutter-action@v2
         with:
-          flutter-version: stable # choose Flutter stable version
+          channel: stable
 
-      # 3️⃣ Enable Flutter web & cache dependencies
-      - name: Flutter Pub Get
+      # 3️⃣ Accept Android licenses
+      - name: Accept Android licenses
+        run: yes | flutter doctor --android-licenses
+
+      # 4️⃣ Install dependencies
+      - name: Install dependencies
         run: flutter pub get
 
-      # 4️⃣ Ensure android folder exists
-      - name: Generate Android Folder if Missing
+      # 5️⃣ Generate Android folder if missing
+      - name: Generate Android folder
+        run: flutter create .
+
+      # 6️⃣ Add required permissions to AndroidManifest.xml
+      - name: Add permissions
         run: |
-          if [ ! -d "./android" ]; then
-            flutter create .
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          # Backup original
+          cp $MANIFEST $MANIFEST.bak
+          
+          # Check if manifest exists
+          if [ -f "$MANIFEST" ]; then
+            # Insert permissions after <manifest ...> line
+            sed -i '/<manifest /a\
+    <uses-permission android:name="android.permission.INTERNET" />\
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />' $MANIFEST
           fi
 
-      # 5️⃣ Write AndroidManifest.xml permissions
-      - name: Write Android Permissions
-        run: |
-          mkdir -p android/app/src/main
-          cat > android/app/src/main/AndroidManifest.xml <<EOL
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-              package="com.adhimusic.app">
-
-              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
-              <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
-              <uses-permission android:name="android.permission.INTERNET"/>
-
-              <application
-                  android:label="AdhiMusic"
-                  android:icon="@mipmap/ic_launcher">
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/>
-                      </intent-filter>
-                  </activity>
-              </application>
-          </manifest>
-          EOL
-
-      # 6️⃣ Build APK release
+      # 7️⃣ Build APK
       - name: Build Release APK
         run: flutter build apk --release
 
-      # 7️⃣ Upload APK artifact
+      # 8️⃣ Upload APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
