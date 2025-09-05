@@ -31,10 +31,10 @@ jobs:
       - name: Flutter Pub Get
         run: flutter pub get
 
-      # 4b. Patch build.gradle to add AppCompat dependency
+      # 4b. Patch build.gradle to add AppCompat dependency (inside dependencies block)
       - name: Patch build.gradle
         run: |
-          sed -i '/dependencies {/a\    implementation "androidx.appcompat:appcompat:1.6.1"' android/app/build.gradle
+          sed -i '/^dependencies {/a\    implementation "androidx.appcompat:appcompat:1.6.1"' android/app/build.gradle || true
 
       # 5. Generate AndroidManifest.xml with v2 embedding flag
       - name: Generate AndroidManifest.xml
