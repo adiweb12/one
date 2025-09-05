@@ -26,29 +26,27 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.24.3"   # You can pin to your version
+          flutter-version: "3.24.3"
 
-      # 4. Install dependencies
+      # 4. Clean + Recreate Android folder (forces V2 embedding)
+      - name: Recreate Android folder with V2 embedding
+        run: |
+          rm -rf android
+          flutter create .
+          # Replace default app id and label
+          sed -i 's/package="com.example.one"/package="com.adhimusic.app"/' android/app/src/main/AndroidManifest.xml
+          sed -i 's/android:label="one"/android:label="AdhiMusic"/' android/app/src/main/AndroidManifest.xml
+
+      # 5. Install dependencies
       - name: Install dependencies
         run: flutter pub get
 
-      # 5. Fix build.gradle (plugins + dependencies)
+      # 6. Patch build.gradle with required deps
       - name: Patch build.gradle
         run: |
-          # Ensure plugins exist at the top
-          if ! grep -q "com.android.application" android/app/build.gradle; then
-            sed -i '1i apply plugin: "com.android.application"' android/app/build.gradle
-          fi
-          if ! grep -q "kotlin-android" android/app/build.gradle; then
-            sed -i '2i apply plugin: "kotlin-android"' android/app/build.gradle
-          fi
-
-          # Ensure dependencies block exists
           if ! grep -q "dependencies {" android/app/build.gradle; then
             echo -e "\ndependencies {\n}" >> android/app/build.gradle
           fi
-
-          # Add required dependencies (skip duplicates)
           if ! grep -q "androidx.appcompat:appcompat" android/app/build.gradle; then
             sed -i '/dependencies {/a\    implementation "androidx.appcompat:appcompat:1.6.1"' android/app/build.gradle
           fi
@@ -56,11 +54,11 @@ jobs:
             sed -i '/dependencies {/a\    implementation "com.google.android.material:material:1.11.0"' android/app/build.gradle
           fi
 
-      # 6. Build APK
+      # 7. Build APK
       - name: Build release APK
         run: flutter build apk --release
 
-      # 7. Upload APK artifact
+      # 8. Upload APK artifact
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
