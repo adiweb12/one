@@ -17,7 +17,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.13.10'  # Flutter with Dart 3.1+
+          flutter-version: '3.10.6'  # Flutter with Dart 3.1+
 
       - name: Flutter Pub Get
         run: flutter pub get
