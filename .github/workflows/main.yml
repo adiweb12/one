@@ -31,14 +31,25 @@ jobs:
       - name: Flutter Pub Get
         run: flutter pub get
 
-      # 4b. Ensure dependencies block exists + add Material3 + AppCompat
+      # 4b. Patch app/build.gradle dependencies correctly
       - name: Patch build.gradle
         run: |
+          # Ensure a dependencies block exists
           if ! grep -q "dependencies {" android/app/build.gradle; then
             echo -e "\ndependencies {\n}" >> android/app/build.gradle
           fi
-          sed -i '/dependencies {/a\    implementation "com.google.android.material:material:1.11.0"' android/app/build.gradle
-          sed -i '/dependencies {/a\    implementation "androidx.appcompat:appcompat:1.6.1"' android/app/build.gradle
+          
+          # Insert only inside the dependencies block
+          awk '
+            /dependencies[[:space:]]*{/ {
+              print
+              print "    implementation \"androidx.appcompat:appcompat:1.6.1\""
+              print "    implementation \"com.google.android.material:material:1.11.0\""
+              next
+            }
+            {print}
+          ' android/app/build.gradle > android/app/build.gradle.new
+          mv android/app/build.gradle.new android/app/build.gradle
 
       # 5. Generate AndroidManifest.xml with v2 embedding flag
       - name: Generate AndroidManifest.xml
