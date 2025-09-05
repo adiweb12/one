@@ -1,63 +1,56 @@
-name: Flutter CI - Auto Android & APK
+name: Flutter CI
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
+  pull_request:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout the repo
-      - name: Checkout repository
+      # 1️⃣ Checkout repository
+      - name: Checkout Repo
         uses: actions/checkout@v4
 
       # 2️⃣ Setup Flutter
       - name: Setup Flutter
-        uses: subosito/flutter-action@v3
+        uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.13.10' # Use your Flutter version
+          flutter-version: '3.13.10' # choose Flutter stable version
 
-      # 3️⃣ Get dependencies
-      - name: Flutter pub get
+      # 3️⃣ Enable Flutter web & cache dependencies
+      - name: Flutter Pub Get
         run: flutter pub get
 
-      # 4️⃣ Ensure Android folder exists
-      - name: Ensure Android folder
+      # 4️⃣ Ensure android folder exists
+      - name: Generate Android Folder if Missing
         run: |
-          if [ ! -d "android" ]; then
+          if [ ! -d "./android" ]; then
             flutter create .
           fi
 
-      # 5️⃣ Write AndroidManifest.xml with storage & internet permissions
-      - name: Ensure Android Manifest & Permissions
+      # 5️⃣ Write AndroidManifest.xml permissions
+      - name: Write Android Permissions
         run: |
-          ANDROID_MANIFEST="android/app/src/main/AndroidManifest.xml"
-          mkdir -p $(dirname $ANDROID_MANIFEST)
-          cat > $ANDROID_MANIFEST <<EOL
+          mkdir -p android/app/src/main
+          cat > android/app/src/main/AndroidManifest.xml <<EOL
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
               package="com.adhimusic.app">
 
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
               <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+              <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
               <uses-permission android:name="android.permission.INTERNET"/>
 
               <application
-                  android:label="Adhi Music"
-                  android:icon="@mipmap/ic_launcher"
-                  android:requestLegacyExternalStorage="true"
-                  android:allowBackup="true">
+                  android:label="AdhiMusic"
+                  android:icon="@mipmap/ic_launcher">
                   <activity
                       android:name=".MainActivity"
-                      android:exported="true"
-                      android:launchMode="singleTop"
-                      android:theme="@style/LaunchTheme"
-                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-                      android:hardwareAccelerated="true"
-                      android:windowSoftInputMode="adjustResize">
+                      android:exported="true">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN"/>
                           <category android:name="android.intent.category.LAUNCHER"/>
@@ -67,13 +60,13 @@ jobs:
           </manifest>
           EOL
 
-      # 6️⃣ Build APK
-      - name: Build release APK
+      # 6️⃣ Build APK release
+      - name: Build Release APK
         run: flutter build apk --release
 
       # 7️⃣ Upload APK artifact
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: adhimusic-release-apk
+          name: app-release.apk
           path: build/app/outputs/flutter-apk/app-release.apk
