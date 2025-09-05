@@ -11,20 +11,104 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Checkout repo
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 2. Setup Flutter
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.19.6'
 
-      - name: Install dependencies
+      # 3. Regenerate Android folder (forces V2 embedding)
+      - name: Regenerate Android folder
+        run: |
+          rm -rf android
+          flutter create .
+
+      # 4. Install dependencies
+      - name: Flutter Pub Get
         run: flutter pub get
 
+      # 5. Patch build.gradle to add Material3 + AppCompat
+      - name: Patch build.gradle
+        run: |
+          if ! grep -q "dependencies {" android/app/build.gradle; then
+            echo -e "\ndependencies {\n}" >> android/app/build.gradle
+          fi
+          sed -i '/dependencies {/a\    implementation "androidx.appcompat:appcompat:1.6.1"' android/app/build.gradle
+          sed -i '/dependencies {/a\    implementation "com.google.android.material:material:1.11.0"' android/app/build.gradle
+
+      # 6. Generate AndroidManifest.xml with V2 embedding + permissions
+      - name: Generate AndroidManifest.xml
+        run: |
+          mkdir -p android/app/src/main
+          cat <<EOT > android/app/src/main/AndroidManifest.xml
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.adhimusic.app">
+
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+              <uses-permission android:name="android.permission.INTERNET"/>
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+
+              <application
+                  android:label="AdhiMusic"
+                  android:icon="@mipmap/ic_launcher"
+                  android:roundIcon="@mipmap/ic_launcher_round"
+                  android:allowBackup="true"
+                  android:supportsRtl="true"
+                  android:theme="@style/Theme.AdhiMusic">
+
+                  <!-- ✅ Force Android embedding V2 -->
+                  <meta-data
+                      android:name="flutterEmbedding"
+                      android:value="2"/>
+
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:launchMode="singleTop"
+                      android:theme="@style/Theme.AdhiMusic"
+                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+                      android:windowSoftInputMode="adjustResize">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOT
+
+      # 7. Generate styles.xml (✅ Material3 theme + LaunchTheme)
+      - name: Generate styles.xml
+        run: |
+          mkdir -p android/app/src/main/res/values
+          cat <<EOT > android/app/src/main/res/values/styles.xml
+          <resources>
+              <!-- Main app theme -->
+              <style name="Theme.AdhiMusic" parent="Theme.Material3.DayNight.NoActionBar">
+                  <item name="android:windowFullscreen">false</item>
+              </style>
+
+              <!-- Launch screen theme -->
+              <style name="LaunchTheme" parent="Theme.Material3.DayNight.NoActionBar">
+                  <item name="android:windowBackground">@android:color/white</item>
+              </style>
+          </resources>
+          EOT
+
+      # 8. Generate launcher icons
+      - name: Generate Launcher Icons
+        run: flutter pub run flutter_launcher_icons:main
+
+      # 9. Build APK
       - name: Build APK
         run: flutter build apk --release
 
+      # 10. Upload APK artifact
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
