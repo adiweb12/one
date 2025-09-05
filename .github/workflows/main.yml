@@ -15,7 +15,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Setup Flutter (stable 3.10.6 for compatibility)
+      # 2. Setup Flutter (stable 3.10.6 for compatibility with Dart 3.0.6)
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -25,14 +25,28 @@ jobs:
       - name: Disable Flutter analytics
         run: flutter config --no-analytics
 
-      # 4. Regenerate android folder with V2 embedding
-      - name: Regenerate Android Folder with V2 Embedding
-        run: |
-          rm -rf android
-          flutter create .
-          flutter pub get
+      # 4. Install dependencies
+      - name: Flutter Pub Get
+        run: flutter pub get
 
-      # 5. Generate AndroidManifest.xml with required permissions & V2 embedding meta-data
+      # 5. Generate launcher icons (your app logo)
+      - name: Generate App Icons
+        run: flutter pub run flutter_launcher_icons:main
+
+      # 6. Ensure custom theme exists (Material2 for CI compatibility)
+      - name: Create styles.xml
+        run: |
+          mkdir -p android/app/src/main/res/values
+          cat <<EOT > android/app/src/main/res/values/styles.xml
+          <resources>
+              <style name="Theme.AdhiMusic" parent="Theme.AppCompat.Light.NoActionBar">
+                  <item name="android:colorPrimary">@android:color/holo_blue_bright</item>
+                  <item name="android:colorAccent">@android:color/holo_green_light</item>
+              </style>
+          </resources>
+          EOT
+
+      # 7. Generate AndroidManifest.xml with permissions & embedding v2
       - name: Generate AndroidManifest.xml
         run: |
           mkdir -p android/app/src/main
@@ -72,23 +86,6 @@ jobs:
                   </activity>
               </application>
           </manifest>
-          EOT
-
-      # 6. Generate launcher icons (fixes ic_launcher_round missing error)
-      - name: Generate App Icons
-        run: flutter pub run flutter_launcher_icons:main
-
-      # 7. Ensure custom theme exists (fixes Theme.AdhiMusic not found)
-      - name: Create styles.xml
-        run: |
-          mkdir -p android/app/src/main/res/values
-          cat <<EOT > android/app/src/main/res/values/styles.xml
-          <resources>
-              <style name="Theme.AdhiMusic" parent="Theme.Material3.DayNight.NoActionBar">
-                  <item name="android:colorPrimary">@android:color/holo_blue_bright</item>
-                  <item name="android:colorAccent">@android:color/holo_green_light</item>
-              </style>
-          </resources>
           EOT
 
       # 8. Build APK
