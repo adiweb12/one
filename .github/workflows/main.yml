@@ -1,80 +1,79 @@
-name: Flutter CI
+name: Flutter CI - Auto Android & APK
 
 on:
   push:
     branches:
       - main
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      # 1️⃣ Checkout the repo
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Setup Flutter
-      uses: subosito/flutter-action@v3
-      with:
-        flutter-version: '3.13.0' # choose stable version
+      # 2️⃣ Setup Flutter
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v3
+        with:
+          flutter-version: '3.13.10' # Use your Flutter version
 
-    - name: Install dependencies
-      run: flutter pub get
+      # 3️⃣ Get dependencies
+      - name: Flutter pub get
+        run: flutter pub get
 
-    # --- Step: Ensure android folder exists ---
-    - name: Generate Android folder if missing
-      run: |
-        if [ ! -d "android" ]; then
-          flutter create .
-        fi
+      # 4️⃣ Ensure Android folder exists
+      - name: Ensure Android folder
+        run: |
+          if [ ! -d "android" ]; then
+            flutter create .
+          fi
 
-    # --- Step: Write AndroidManifest.xml with permissions ---
-    - name: Write AndroidManifest.xml
-      run: |
-        mkdir -p android/app/src/main
-        cat > android/app/src/main/AndroidManifest.xml << EOL
-        <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-            package="com.adhimusic.app">
+      # 5️⃣ Write AndroidManifest.xml with storage & internet permissions
+      - name: Ensure Android Manifest & Permissions
+        run: |
+          ANDROID_MANIFEST="android/app/src/main/AndroidManifest.xml"
+          mkdir -p $(dirname $ANDROID_MANIFEST)
+          cat > $ANDROID_MANIFEST <<EOL
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.adhimusic.app">
 
-            <uses-permission android:name="android.permission.INTERNET"/>
-            <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-            <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
-            <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+              <uses-permission android:name="android.permission.INTERNET"/>
 
-            <application
-                android:label="adhimusic"
-                android:icon="@mipmap/ic_launcher">
-                <activity
-                    android:name=".MainActivity"
-                    android:exported="true"
-                    android:launchMode="singleTop"
-                    android:theme="@style/LaunchTheme"
-                    android:configChanges="keyboard|keyboardHidden|orientation|screenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-                    android:hardwareAccelerated="true"
-                    android:windowSoftInputMode="adjustResize">
-                    <meta-data
-                        android:name="io.flutter.embedding.android.NormalTheme"
-                        android:resource="@style/NormalTheme"/>
-                    <intent-filter>
-                        <action android:name="android.intent.action.MAIN"/>
-                        <category android:name="android.intent.category.LAUNCHER"/>
-                    </intent-filter>
-                </activity>
-            </application>
-        </manifest>
-        EOL
+              <application
+                  android:label="Adhi Music"
+                  android:icon="@mipmap/ic_launcher"
+                  android:requestLegacyExternalStorage="true"
+                  android:allowBackup="true">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:launchMode="singleTop"
+                      android:theme="@style/LaunchTheme"
+                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+                      android:hardwareAccelerated="true"
+                      android:windowSoftInputMode="adjustResize">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOL
 
-    # --- Step: Generate launcher icons from assets/logo.png ---
-    - name: Generate launcher icons
-      run: flutter pub run flutter_launcher_icons:main
+      # 6️⃣ Build APK
+      - name: Build release APK
+        run: flutter build apk --release
 
-    # --- Step: Build release APK ---
-    - name: Build APK
-      run: flutter build apk --release
-
-    - name: Upload APK
-      uses: actions/upload-artifact@v3
-      with:
-        name: app-release.apk
-        path: build/app/outputs/flutter-apk/app-release.apk
+      # 7️⃣ Upload APK artifact
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: adhimusic-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
