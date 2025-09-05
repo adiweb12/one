@@ -33,26 +33,34 @@ jobs:
         run: |
           rm -rf android
           flutter create .
-          # Replace default app id and label
+          # Update app id and label
           sed -i 's/package="com.example.one"/package="com.adhimusic.app"/' android/app/src/main/AndroidManifest.xml
           sed -i 's/android:label="one"/android:label="AdhiMusic"/' android/app/src/main/AndroidManifest.xml
 
-      # 5. Install dependencies
+      # 5. Add extra permissions to AndroidManifest.xml (without overwriting)
+      - name: Add permissions to AndroidManifest.xml
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+
+          if [ ! -f "$MANIFEST" ]; then
+            echo "❌ AndroidManifest.xml not found!"
+            exit 1
+          fi
+
+          for PERM in \
+            "android.permission.READ_EXTERNAL_STORAGE" \
+            "android.permission.WRITE_EXTERNAL_STORAGE" \
+            "android.permission.RECORD_AUDIO" \
+            "android.permission.MODIFY_AUDIO_SETTINGS"
+          do
+            if ! grep -q "$PERM" "$MANIFEST"; then
+              sed -i "/<manifest/a\    <uses-permission android:name=\"$PERM\"/>" "$MANIFEST"
+            fi
+          done
+
+      # 6. Install dependencies
       - name: Install dependencies
         run: flutter pub get
-
-      # 6. Patch build.gradle with required deps
-      - name: Patch build.gradle
-        run: |
-          if ! grep -q "dependencies {" android/app/build.gradle; then
-            echo -e "\ndependencies {\n}" >> android/app/build.gradle
-          fi
-          if ! grep -q "androidx.appcompat:appcompat" android/app/build.gradle; then
-            sed -i '/dependencies {/a\    implementation "androidx.appcompat:appcompat:1.6.1"' android/app/build.gradle
-          fi
-          if ! grep -q "com.google.android.material:material" android/app/build.gradle; then
-            sed -i '/dependencies {/a\    implementation "com.google.android.material:material:1.11.0"' android/app/build.gradle
-          fi
 
       # 7. Build APK
       - name: Build release APK
