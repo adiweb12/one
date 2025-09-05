@@ -11,21 +11,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout repo
+      # 1. Checkout the repository
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2. Setup Flutter 3.13.10 (Dart 3.1.x)
+      # 2. Setup Flutter (stable, v3.13.9)
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.13.10'
+          flutter-version: '3.13.9'
 
-      # 3. Install dependencies
+      # 3. Get dependencies
       - name: Flutter Pub Get
         run: flutter pub get
 
-      # 4. Generate AndroidManifest.xml with permissions
+      # 4. Generate AndroidManifest.xml with required permissions
       - name: Generate AndroidManifest.xml
         run: |
           mkdir -p android/app/src/main
@@ -62,15 +62,28 @@ jobs:
           </manifest>
           EOT
 
-      # 5. Generate launcher icons
+      # 5. Generate Android v2 MainActivity if missing
+      - name: Generate MainActivity.kt
+        run: |
+          mkdir -p android/app/src/main/kotlin/com/adhimusic/app
+          cat <<EOT > android/app/src/main/kotlin/com/adhimusic/app/MainActivity.kt
+          package com.adhimusic.app
+
+          import io.flutter.embedding.android.FlutterActivity
+
+          class MainActivity: FlutterActivity() {
+          }
+          EOT
+
+      # 6. Generate launcher icons automatically from assets/logo.png
       - name: Generate Launcher Icons
         run: flutter pub run flutter_launcher_icons:main
 
-      # 6. Build APK
+      # 7. Build release APK
       - name: Build APK
         run: flutter build apk --release
 
-      # 7. Upload APK
+      # 8. Upload APK artifact
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
