@@ -15,19 +15,37 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2. Set up Flutter
+      # 2. Setup Flutter
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@v1
         with:
-          flutter-version: '3.7.12'  # Stable version
+          flutter-version: '3.13.10'
 
       # 3. Install dependencies
       - name: Flutter Pub Get
         run: flutter pub get
 
-      # 4. Generate AndroidManifest.xml with permissions
-      - name: Generate AndroidManifest.xml
+      # 4. Generate Android folder (v2 embedding) with MainActivity.kt
+      - name: Generate Android v2 folder
         run: |
+          mkdir -p android/app/src/main/kotlin/com/adhimusic/app
+          mkdir -p android/app/src/main/res/mipmap-xxxhdpi
+          mkdir -p android/app/src/main/res/mipmap-xxhdpi
+          mkdir -p android/app/src/main/res/mipmap-xhdpi
+          mkdir -p android/app/src/main/res/mipmap-hdpi
+          mkdir -p android/app/src/main/res/mipmap-mdpi
+          
+          # MainActivity.kt
+          cat <<EOT > android/app/src/main/kotlin/com/adhimusic/app/MainActivity.kt
+          package com.adhimusic.app
+
+          import io.flutter.embedding.android.FlutterActivity
+
+          class MainActivity: FlutterActivity() {
+          }
+          EOT
+
+          # AndroidManifest.xml
           mkdir -p android/app/src/main
           cat <<EOT > android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -45,7 +63,7 @@ jobs:
                   android:allowBackup="true"
                   android:supportsRtl="true"
                   android:theme="@style/Theme.AdhiMusic">
-                  
+
                   <activity
                       android:name=".MainActivity"
                       android:exported="true"
@@ -64,12 +82,11 @@ jobs:
 
       # 5. Generate launcher icons automatically from assets/logo.png
       - name: Generate Launcher Icons
-        run: |
-          flutter pub run flutter_launcher_icons:main
+        run: flutter pub run flutter_launcher_icons:main
 
       # 6. Build APK
       - name: Build APK
-        run: flutter build apk --release
+        run: flutter build apk --release --target-platform android-arm,android-arm64,android-x64
 
       # 7. Upload APK
       - name: Upload APK
