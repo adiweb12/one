@@ -2,26 +2,26 @@ name: Flutter Build APK
 
 on:
   push:
-    branches: [main]
+    branches: [ "main" ]
   pull_request:
-    branches: [main]
+    branches: [ "main" ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout repo
+      # 1. Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Setup Flutter (use 3.10.6 stable)
+      # 2. Setup Flutter (stable 3.10.6 for compatibility)
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.10.6'
 
-      # 3. Disable flutter analytics
+      # 3. Disable analytics to avoid prompts
       - name: Disable Flutter analytics
         run: flutter config --no-analytics
 
@@ -32,7 +32,7 @@ jobs:
           flutter create .
           flutter pub get
 
-      # 5. Generate AndroidManifest.xml with required permissions & embedding v2 meta-data
+      # 5. Generate AndroidManifest.xml with required permissions & V2 embedding meta-data
       - name: Generate AndroidManifest.xml
         run: |
           mkdir -p android/app/src/main
@@ -74,11 +74,28 @@ jobs:
           </manifest>
           EOT
 
-      # 6. Build APK
+      # 6. Generate launcher icons (fixes ic_launcher_round missing error)
+      - name: Generate App Icons
+        run: flutter pub run flutter_launcher_icons:main
+
+      # 7. Ensure custom theme exists (fixes Theme.AdhiMusic not found)
+      - name: Create styles.xml
+        run: |
+          mkdir -p android/app/src/main/res/values
+          cat <<EOT > android/app/src/main/res/values/styles.xml
+          <resources>
+              <style name="Theme.AdhiMusic" parent="Theme.Material3.DayNight.NoActionBar">
+                  <item name="android:colorPrimary">@android:color/holo_blue_bright</item>
+                  <item name="android:colorAccent">@android:color/holo_green_light</item>
+              </style>
+          </resources>
+          EOT
+
+      # 8. Build APK
       - name: Build APK
         run: flutter build apk --release
 
-      # 7. Upload APK artifact
+      # 9. Upload APK artifact
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
