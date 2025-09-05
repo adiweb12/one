@@ -21,15 +21,18 @@ jobs:
         with:
           flutter-version: '3.10.6'
 
-      # 3. Enable flutter analytics off to prevent prompts
+      # 3. Disable flutter analytics (avoid prompts)
       - name: Disable Flutter analytics
         run: flutter config --no-analytics
 
-      # 4. Install dependencies
-      - name: Flutter Pub Get
-        run: flutter pub get
+      # 4. Regenerate android folder with V2 embedding
+      - name: Regenerate Android Folder with V2 Embedding
+        run: |
+          rm -rf android
+          flutter create .
+          flutter pub get
 
-      # 5. Generate AndroidManifest.xml with required permissions
+      # 5. Ensure AndroidManifest.xml has required permissions
       - name: Generate AndroidManifest.xml
         run: |
           mkdir -p android/app/src/main
