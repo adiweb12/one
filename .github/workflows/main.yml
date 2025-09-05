@@ -42,9 +42,9 @@ jobs:
           if [ -f "$MANIFEST" ]; then
             # Insert permissions after <manifest ...> line
             sed -i '/<manifest /a\
-    <uses-permission android:name="android.permission.INTERNET" />\
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\
-    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />' $MANIFEST
+                <uses-permission android:name="android.permission.INTERNET" />\
+                <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\
+                <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />' $MANIFEST
           fi
 
       # 7️⃣ Build APK
