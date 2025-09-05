@@ -15,7 +15,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2. Setup Flutter (supports Dart 3.6)
+      # 2. Setup Flutter
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -30,11 +30,6 @@ jobs:
       # 4. Install dependencies
       - name: Flutter Pub Get
         run: flutter pub get
-
-      # 4b. Patch build.gradle to add AppCompat dependency (inside dependencies block)
-      - name: Patch build.gradle
-        run: |
-          sed -i '/^dependencies {/a\    implementation "androidx.appcompat:appcompat:1.6.1"' android/app/build.gradle || true
 
       # 5. Generate AndroidManifest.xml with v2 embedding flag
       - name: Generate AndroidManifest.xml
@@ -78,25 +73,25 @@ jobs:
           </manifest>
           EOT
 
-      # 6. Generate styles.xml (✅ AppCompat theme + LaunchTheme)
+      # 6. Generate styles.xml (✅ Material3 theme + LaunchTheme)
       - name: Generate styles.xml
         run: |
           mkdir -p android/app/src/main/res/values
           cat <<EOT > android/app/src/main/res/values/styles.xml
           <resources>
               <!-- Main app theme -->
-              <style name="Theme.AdhiMusic" parent="Theme.AppCompat.Light.NoActionBar">
+              <style name="Theme.AdhiMusic" parent="Theme.Material3.DayNight.NoActionBar">
                   <item name="android:windowFullscreen">false</item>
               </style>
 
               <!-- Launch screen theme -->
-              <style name="LaunchTheme" parent="Theme.AppCompat.Light.NoActionBar">
+              <style name="LaunchTheme" parent="Theme.Material3.DayNight.NoActionBar">
                   <item name="android:windowBackground">@android:color/white</item>
               </style>
           </resources>
           EOT
 
-      # 7. Generate launcher icons from assets/logo.png
+      # 7. Generate launcher icons
       - name: Generate Launcher Icons
         run: flutter pub run flutter_launcher_icons:main
 
