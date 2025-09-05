@@ -73,14 +73,20 @@ jobs:
           </manifest>
           EOT
 
-      # 6. Generate styles.xml
+      # 6. Generate styles.xml (✅ AppCompat theme + LaunchTheme)
       - name: Generate styles.xml
         run: |
           mkdir -p android/app/src/main/res/values
           cat <<EOT > android/app/src/main/res/values/styles.xml
           <resources>
-              <style name="Theme.AdhiMusic" parent="Theme.MaterialComponents.Light.NoActionBar">
+              <!-- Main app theme -->
+              <style name="Theme.AdhiMusic" parent="Theme.AppCompat.Light.NoActionBar">
                   <item name="android:windowFullscreen">false</item>
+              </style>
+
+              <!-- Launch screen theme -->
+              <style name="LaunchTheme" parent="Theme.AppCompat.Light.NoActionBar">
+                  <item name="android:windowBackground">@android:color/white</item>
               </style>
           </resources>
           EOT
