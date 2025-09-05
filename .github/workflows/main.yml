@@ -15,7 +15,7 @@ jobs:
 
       # 2️⃣ Setup Flutter
       - name: Setup Flutter
-        uses: flutter/flutter-action@v2
+        uses: subosito/flutter-action@v2
         with:
           channel: stable
 
@@ -35,19 +35,15 @@ jobs:
       - name: Add permissions
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
-          # Backup original
           cp $MANIFEST $MANIFEST.bak
-          
-          # Check if manifest exists
           if [ -f "$MANIFEST" ]; then
-            # Insert permissions after <manifest ...> line
             sed -i '/<manifest /a\
-                <uses-permission android:name="android.permission.INTERNET" />\
-                <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\
-                <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />' $MANIFEST
+    <uses-permission android:name="android.permission.INTERNET" />\
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />' $MANIFEST
           fi
 
-      # 7️⃣ Build APK
+      # 7️⃣ Build Release APK
       - name: Build Release APK
         run: flutter build apk --release
 
