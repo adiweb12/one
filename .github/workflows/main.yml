@@ -15,25 +15,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Setup Flutter (stable 3.10.6 for compatibility with Dart 3.0.6)
+      # 2. Setup Flutter (stable 3.10.6 for Dart 3.0.6 compatibility)
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.10.6'
 
-      # 3. Disable analytics to avoid prompts
+      # 3. Disable analytics
       - name: Disable Flutter analytics
         run: flutter config --no-analytics
 
-      # 4. Install dependencies
-      - name: Flutter Pub Get
-        run: flutter pub get
+      # 4. Regenerate android folder with V2 embedding
+      - name: Regenerate Android folder (V2 embedding)
+        run: |
+          rm -rf android
+          flutter create .
+          flutter pub get
 
-      # 5. Generate launcher icons (your app logo)
-      - name: Generate App Icons
-        run: flutter pub run flutter_launcher_icons:main
-
-      # 6. Ensure custom theme exists (Material2 for CI compatibility)
+      # 5. Create custom theme (Material2 to avoid CI error)
       - name: Create styles.xml
         run: |
           mkdir -p android/app/src/main/res/values
@@ -46,7 +45,7 @@ jobs:
           </resources>
           EOT
 
-      # 7. Generate AndroidManifest.xml with permissions & embedding v2
+      # 6. Generate AndroidManifest.xml with permissions + V2 embedding meta-data
       - name: Generate AndroidManifest.xml
         run: |
           mkdir -p android/app/src/main
@@ -87,6 +86,10 @@ jobs:
               </application>
           </manifest>
           EOT
+
+      # 7. Generate launcher icons from your assets/logo.png
+      - name: Generate App Icons
+        run: flutter pub run flutter_launcher_icons:main
 
       # 8. Build APK
       - name: Build APK
