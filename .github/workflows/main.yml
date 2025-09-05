@@ -11,21 +11,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout the repo
-      - name: Checkout Repository
+      # 1. Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       # 2. Set up Flutter
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: flutter-actions/setup-flutter@v2
         with:
-          flutter-version: '3.7.12'   # Stable version compatible with Dart 3.1.x
+          flutter-version: "3.13.10"
 
-      # 3. Install dependencies
+      # 3. Disable analytics (optional)
+      - name: Disable Flutter Analytics
+        run: flutter config --no-analytics
+
+      # 4. Ensure Flutter project has android folder (v2 embedding)
+      - name: Ensure Android folder exists
+        run: |
+          if [ ! -d "android" ]; then
+            flutter create --platforms=android .
+          fi
+
+      # 5. Install dependencies
       - name: Flutter Pub Get
         run: flutter pub get
 
-      # 4. Generate AndroidManifest.xml with storage & internet permissions
+      # 6. Generate AndroidManifest.xml with permissions
       - name: Generate AndroidManifest.xml
         run: |
           mkdir -p android/app/src/main
@@ -45,7 +56,7 @@ jobs:
                   android:allowBackup="true"
                   android:supportsRtl="true"
                   android:theme="@style/Theme.AdhiMusic">
-                  
+
                   <activity
                       android:name=".MainActivity"
                       android:exported="true"
@@ -58,19 +69,20 @@ jobs:
                           <category android:name="android.intent.category.LAUNCHER"/>
                       </intent-filter>
                   </activity>
+
               </application>
           </manifest>
           EOT
 
-      # 5. Generate launcher icons from assets/logo.png
+      # 7. Generate launcher icons from assets/logo.png
       - name: Generate Launcher Icons
         run: flutter pub run flutter_launcher_icons:main
 
-      # 6. Build APK
+      # 8. Build APK
       - name: Build APK
         run: flutter build apk --release
 
-      # 7. Upload APK artifact
+      # 9. Upload APK artifact
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
