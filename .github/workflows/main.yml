@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout repository
+      # 1. Checkout repo
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -19,13 +19,13 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.13.10'
+          flutter-version: '3.7.12'  # Stable version
 
       # 3. Install dependencies
       - name: Flutter Pub Get
         run: flutter pub get
 
-      # 4. Generate AndroidManifest.xml automatically
+      # 4. Generate AndroidManifest.xml with permissions
       - name: Generate AndroidManifest.xml
         run: |
           mkdir -p android/app/src/main
@@ -62,11 +62,16 @@ jobs:
           </manifest>
           EOT
 
-      # 5. Build APK
+      # 5. Generate launcher icons automatically from assets/logo.png
+      - name: Generate Launcher Icons
+        run: |
+          flutter pub run flutter_launcher_icons:main
+
+      # 6. Build APK
       - name: Build APK
         run: flutter build apk --release
 
-      # 6. Upload APK as artifact
+      # 7. Upload APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
