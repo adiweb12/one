@@ -11,32 +11,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout repository
-      - name: Checkout repository
+      # 1. Checkout the repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
       # 2. Set up Flutter
       - name: Setup Flutter
-        uses: flutter-actions/setup-flutter@v2
+        uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.13.10"
+          flutter-version: '3.13.7'  # Stable version compatible with your Dart SDK
 
-      # 3. Disable analytics (optional)
-      - name: Disable Flutter Analytics
-        run: flutter config --no-analytics
-
-      # 4. Ensure Flutter project has android folder (v2 embedding)
-      - name: Ensure Android folder exists
-        run: |
-          if [ ! -d "android" ]; then
-            flutter create --platforms=android .
-          fi
-
-      # 5. Install dependencies
+      # 3. Install dependencies
       - name: Flutter Pub Get
         run: flutter pub get
 
-      # 6. Generate AndroidManifest.xml with permissions
+      # 4. Generate AndroidManifest.xml with storage & internet permissions
       - name: Generate AndroidManifest.xml
         run: |
           mkdir -p android/app/src/main
@@ -69,20 +58,19 @@ jobs:
                           <category android:name="android.intent.category.LAUNCHER"/>
                       </intent-filter>
                   </activity>
-
               </application>
           </manifest>
           EOT
 
-      # 7. Generate launcher icons from assets/logo.png
+      # 5. Generate launcher icons automatically
       - name: Generate Launcher Icons
-        run: flutter pub run flutter_launcher_icons:main
+        run: flutter pub get && flutter pub run flutter_launcher_icons:main
 
-      # 8. Build APK
-      - name: Build APK
+      # 6. Build APK
+      - name: Build Release APK
         run: flutter build apk --release
 
-      # 9. Upload APK artifact
+      # 7. Upload APK as artifact
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
