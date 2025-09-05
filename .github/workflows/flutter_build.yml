@@ -1,61 +1,78 @@
-name: Flutter Local Build
+name: Flutter Build APK
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout
-      - name: Checkout repository
+      # 1. Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # Setup Flutter
+      # 2. Setup Flutter
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@v1
         with:
-          flutter-version: '3.24.3'
+          flutter-version: '3.7.12'
 
-      # Get dependencies
-      - name: Install dependencies
+      # 3. Install dependencies
+      - name: Flutter Pub Get
         run: flutter pub get
 
-      # ⚡ Recreate android/ folder (V2 embedding safe)
-      - name: Regenerate android folder
+      # 4. Generate Android folder and AndroidManifest.xml
+      - name: Generate AndroidManifest.xml
         run: |
-          echo "⚡ Resetting android/ folder"
-          rm -rf android
-          flutter create . --platforms=android
+          mkdir -p android/app/src/main
+          cat <<'EOT' > android/app/src/main/AndroidManifest.xml
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.adhimusic.app">
 
-      # ✨ Patch AndroidManifest.xml
-      - name: Patch AndroidManifest.xml
-        run: |
-          MANIFEST="android/app/src/main/AndroidManifest.xml"
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
-          # Add permissions
-          sed -i '/<application/i\
-          <uses-permission android:name="android.permission.INTERNET"/>\n\
-          <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>\n\
-          <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>' $MANIFEST
+    <application
+        android:label="AdhiMusic"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:allowBackup="true"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.AdhiMusic">
 
-          # Use custom launcher icon
-          sed -i 's/android:icon="@mipmap\/ic_launcher"/android:icon="@mipmap\/launcher_icon"/' $MANIFEST
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.AdhiMusic"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
+EOT
 
-          echo "✅ Patched AndroidManifest.xml"
+      # 5. Generate launcher icons
+      - name: Generate Launcher Icons
+        run: flutter pub run flutter_launcher_icons:main
 
-      # 🎨 Generate launcher icons
-      - name: Generate launcher icons
-        run: flutter pub run flutter_launcher_icons
-
-      # 📦 Build APK
-      - name: Build release APK
+      # 6. Build APK
+      - name: Build APK
         run: flutter build apk --release
 
-      # Upload artifact
+      # 7. Upload APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: release-apk
+          name: app-release.apk
           path: build/app/outputs/flutter-apk/app-release.apk
