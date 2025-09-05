@@ -2,52 +2,72 @@ name: Flutter Build APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
+    branches: [main]
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout code
-      - uses: actions/checkout@v4
+      # 1. Checkout the repo
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      # 2️⃣ Setup Flutter
+      # 2. Set up Flutter
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: flutter/flutter-action@v2
         with:
-          channel: stable
+          flutter-version: "3.13.10"
 
-      # 3️⃣ Accept Android licenses
-      - name: Accept Android licenses
-        run: yes | flutter doctor --android-licenses
-
-      # 4️⃣ Install dependencies
-      - name: Install dependencies
+      # 3. Install dependencies
+      - name: Flutter Pub Get
         run: flutter pub get
 
-      # 5️⃣ Generate Android folder if missing
-      - name: Generate Android folder
-        run: flutter create .
-
-      # 6️⃣ Add required permissions to AndroidManifest.xml
-      - name: Add permissions
+      # 4. Generate AndroidManifest.xml automatically
+      - name: Generate AndroidManifest.xml
         run: |
-          MANIFEST="android/app/src/main/AndroidManifest.xml"
-          cp $MANIFEST $MANIFEST.bak
-          if [ -f "$MANIFEST" ]; then
-            sed -i '/<manifest /a\
-              <uses-permission android:name="android.permission.INTERNET" />\
-              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\
-              <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />' $MANIFEST
-          fi
+          mkdir -p android/app/src/main
+          cat <<EOT > android/app/src/main/AndroidManifest.xml
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.adhimusic.app">
 
-      # 7️⃣ Build Release APK
-      - name: Build Release APK
+              <!-- Permissions -->
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+              <uses-permission android:name="android.permission.INTERNET"/>
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+
+              <application
+                  android:label="AdhiMusic"
+                  android:icon="@mipmap/ic_launcher"
+                  android:roundIcon="@mipmap/ic_launcher_round"
+                  android:allowBackup="true"
+                  android:supportsRtl="true"
+                  android:theme="@style/Theme.AdhiMusic">
+                  
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:launchMode="singleTop"
+                      android:theme="@style/Theme.AdhiMusic"
+                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+                      android:windowSoftInputMode="adjustResize">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOT
+
+      # 5. Build the APK
+      - name: Build APK
         run: flutter build apk --release
 
-      # 8️⃣ Upload APK
+      # 6. Upload APK as artifact
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
