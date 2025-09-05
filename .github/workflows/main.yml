@@ -11,55 +11,70 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout code
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      # 2️⃣ Setup Flutter
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.24.3'
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.13.0' # choose stable version
 
-      # 3️⃣ Install dependencies
-      - name: Install dependencies
-        run: flutter pub get
+    - name: Install dependencies
+      run: flutter pub get
 
-      # 4️⃣ Regenerate Android folder (forces V2 embedding)
-      - name: Regenerate Android folder
-        run: |
-          echo "⚠️ Removing old android/ folder and recreating..."
-          rm -rf android
-          flutter create . --platforms=android
+    # --- Step: Ensure android folder exists ---
+    - name: Generate Android folder if missing
+      run: |
+        if [ ! -d "android" ]; then
+          flutter create .
+        fi
 
-      # 5️⃣ Add permissions to AndroidManifest.xml
-      - name: Add permissions
-        run: |
-          MANIFEST="android/app/src/main/AndroidManifest.xml"
-          sed -i '/<application/i\
-          <uses-permission android:name="android.permission.INTERNET"/>\n\
-          <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>\n\
-          <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>' $MANIFEST
+    # --- Step: Write AndroidManifest.xml with permissions ---
+    - name: Write AndroidManifest.xml
+      run: |
+        mkdir -p android/app/src/main
+        cat > android/app/src/main/AndroidManifest.xml << EOL
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+            package="com.adhimusic.app">
 
-      # 6️⃣ Set Gradle + Java/Kotlin versions
-      - name: Set Gradle + Java + Kotlin
-        run: |
-          echo "org.gradle.jvmargs=-Xmx4096M" >> android/gradle.properties
-          echo "android.useAndroidX=true" >> android/gradle.properties
-          echo "android.enableJetifier=true" >> android/gradle.properties
-          sed -i '/classpath "com.android.tools.build:gradle/s/$/"/' android/build.gradle || true
+            <uses-permission android:name="android.permission.INTERNET"/>
+            <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+            <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+            <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
 
-      # 7️⃣ Upgrade plugins to latest (important for v2 embedding)
-      - name: Upgrade dependencies
-        run: flutter pub upgrade --major-versions
+            <application
+                android:label="adhimusic"
+                android:icon="@mipmap/ic_launcher">
+                <activity
+                    android:name=".MainActivity"
+                    android:exported="true"
+                    android:launchMode="singleTop"
+                    android:theme="@style/LaunchTheme"
+                    android:configChanges="keyboard|keyboardHidden|orientation|screenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+                    android:hardwareAccelerated="true"
+                    android:windowSoftInputMode="adjustResize">
+                    <meta-data
+                        android:name="io.flutter.embedding.android.NormalTheme"
+                        android:resource="@style/NormalTheme"/>
+                    <intent-filter>
+                        <action android:name="android.intent.action.MAIN"/>
+                        <category android:name="android.intent.category.LAUNCHER"/>
+                    </intent-filter>
+                </activity>
+            </application>
+        </manifest>
+        EOL
 
-      # 8️⃣ Build release APK
-      - name: Build release APK
-        run: flutter build apk --release
+    # --- Step: Generate launcher icons from assets/logo.png ---
+    - name: Generate launcher icons
+      run: flutter pub run flutter_launcher_icons:main
 
-      # 9️⃣ Upload APK artifact
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+    # --- Step: Build release APK ---
+    - name: Build APK
+      run: flutter build apk --release
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v3
+      with:
+        name: app-release.apk
+        path: build/app/outputs/flutter-apk/app-release.apk
