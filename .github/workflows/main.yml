@@ -11,15 +11,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout the repo
-      - name: Checkout Repository
+      # 1. Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       # 2. Set up Flutter
       - name: Setup Flutter
-        uses: flutter/flutter-action@v2
+        uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.13.10"
+          flutter-version: '3.13.10'
 
       # 3. Install dependencies
       - name: Flutter Pub Get
@@ -33,7 +33,6 @@ jobs:
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
               package="com.adhimusic.app">
 
-              <!-- Permissions -->
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
               <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
               <uses-permission android:name="android.permission.INTERNET"/>
@@ -63,7 +62,7 @@ jobs:
           </manifest>
           EOT
 
-      # 5. Build the APK
+      # 5. Build APK
       - name: Build APK
         run: flutter build apk --release
 
