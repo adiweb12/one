@@ -15,13 +15,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2. Setup Flutter
+      # 2. Setup Flutter (supports Dart 3.6)
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.6' # Latest stable that supports Dart 3.6
+          flutter-version: '3.19.6'
 
-      # 3. Regenerate Android folder (V2 embedding)
+      # 3. Regenerate Android folder (ensures V2 embedding)
       - name: Regenerate Android folder
         run: |
           rm -rf android
@@ -31,7 +31,7 @@ jobs:
       - name: Flutter Pub Get
         run: flutter pub get
 
-      # 5. Replace AndroidManifest.xml with required permissions
+      # 5. Generate AndroidManifest.xml with v2 embedding flag
       - name: Generate AndroidManifest.xml
         run: |
           mkdir -p android/app/src/main
@@ -52,6 +52,11 @@ jobs:
                   android:supportsRtl="true"
                   android:theme="@style/Theme.AdhiMusic">
 
+                  <!-- ✅ Force Android embedding V2 -->
+                  <meta-data
+                      android:name="flutterEmbedding"
+                      android:value="2"/>
+
                   <activity
                       android:name=".MainActivity"
                       android:exported="true"
@@ -68,7 +73,7 @@ jobs:
           </manifest>
           EOT
 
-      # 6. Generate styles.xml (custom theme)
+      # 6. Generate styles.xml
       - name: Generate styles.xml
         run: |
           mkdir -p android/app/src/main/res/values
