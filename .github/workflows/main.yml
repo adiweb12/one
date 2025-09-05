@@ -31,9 +31,12 @@ jobs:
       - name: Flutter Pub Get
         run: flutter pub get
 
-        # 4b. Patch build.gradle to add Material3 dependency
+      # 4b. Ensure dependencies block exists + add Material3
       - name: Patch build.gradle
         run: |
+          if ! grep -q "dependencies {" android/app/build.gradle; then
+            echo -e "\ndependencies {\n}" >> android/app/build.gradle
+          fi
           sed -i '/dependencies {/a\    implementation "com.google.android.material:material:1.11.0"' android/app/build.gradle
 
       # 5. Generate AndroidManifest.xml with v2 embedding flag
