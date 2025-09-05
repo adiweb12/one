@@ -2,50 +2,27 @@ name: Flutter Build APK
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
   pull_request:
-    branches: [ "main" ]
+    branches: [main]
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout repository
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # 2. Setup Flutter (stable 3.10.6 for Dart 3.0.6 compatibility)
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.10.6'
+          flutter-version: '3.13.10'  # Flutter with Dart 3.1+
 
-      # 3. Disable analytics
-      - name: Disable Flutter analytics
-        run: flutter config --no-analytics
+      - name: Flutter Pub Get
+        run: flutter pub get
 
-      # 4. Regenerate android folder with V2 embedding
-      - name: Regenerate Android folder (V2 embedding)
-        run: |
-          rm -rf android
-          flutter create .
-          flutter pub get
-
-      # 5. Create custom theme (Material2 to avoid CI error)
-      - name: Create styles.xml
-        run: |
-          mkdir -p android/app/src/main/res/values
-          cat <<EOT > android/app/src/main/res/values/styles.xml
-          <resources>
-              <style name="Theme.AdhiMusic" parent="Theme.AppCompat.Light.NoActionBar">
-                  <item name="android:colorPrimary">@android:color/holo_blue_bright</item>
-                  <item name="android:colorAccent">@android:color/holo_green_light</item>
-              </style>
-          </resources>
-          EOT
-
-      # 6. Generate AndroidManifest.xml with permissions + V2 embedding meta-data
+      # ✅ Generate AndroidManifest.xml
       - name: Generate AndroidManifest.xml
         run: |
           mkdir -p android/app/src/main
@@ -66,11 +43,6 @@ jobs:
                   android:supportsRtl="true"
                   android:theme="@style/Theme.AdhiMusic">
 
-                  <!-- Required for V2 embedding -->
-                  <meta-data
-                      android:name="flutterEmbedding"
-                      android:value="2" />
-
                   <activity
                       android:name=".MainActivity"
                       android:exported="true"
@@ -87,15 +59,26 @@ jobs:
           </manifest>
           EOT
 
-      # 7. Generate launcher icons from your assets/logo.png
-      - name: Generate App Icons
+      # ✅ Generate styles.xml
+      - name: Generate styles.xml
+        run: |
+          mkdir -p android/app/src/main/res/values
+          cat <<EOT > android/app/src/main/res/values/styles.xml
+          <resources>
+              <style name="Theme.AdhiMusic" parent="Theme.MaterialComponents.Light.NoActionBar">
+                  <item name="android:windowFullscreen">false</item>
+              </style>
+          </resources>
+          EOT
+
+      # Generate launcher icons
+      - name: Generate Launcher Icons
         run: flutter pub run flutter_launcher_icons:main
 
-      # 8. Build APK
+      # Build APK
       - name: Build APK
         run: flutter build apk --release
 
-      # 9. Upload APK artifact
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
