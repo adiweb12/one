@@ -11,18 +11,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Checkout repo
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 2. Setup Flutter
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.10.6'  # Flutter with Dart 3.1+
+          flutter-version: '3.19.6' # Latest stable that supports Dart 3.6
 
+      # 3. Regenerate Android folder (V2 embedding)
+      - name: Regenerate Android folder
+        run: |
+          rm -rf android
+          flutter create .
+
+      # 4. Install dependencies
       - name: Flutter Pub Get
         run: flutter pub get
 
-      # ✅ Generate AndroidManifest.xml
+      # 5. Replace AndroidManifest.xml with required permissions
       - name: Generate AndroidManifest.xml
         run: |
           mkdir -p android/app/src/main
@@ -59,7 +68,7 @@ jobs:
           </manifest>
           EOT
 
-      # ✅ Generate styles.xml
+      # 6. Generate styles.xml (custom theme)
       - name: Generate styles.xml
         run: |
           mkdir -p android/app/src/main/res/values
@@ -71,14 +80,15 @@ jobs:
           </resources>
           EOT
 
-      # Generate launcher icons
+      # 7. Generate launcher icons from assets/logo.png
       - name: Generate Launcher Icons
         run: flutter pub run flutter_launcher_icons:main
 
-      # Build APK
+      # 8. Build APK
       - name: Build APK
         run: flutter build apk --release
 
+      # 9. Upload APK artifact
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
