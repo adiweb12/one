@@ -36,15 +36,7 @@ jobs:
       - name: Create new Flutter project
         run: flutter create --org com.adhimusic --project-name adhimusic --template app .
 
-      # 6. Copy your Dart code into lib/
-      - name: Copy Dart code
-        run: |
-           mkdir -p lib
-           cp src/main.dart lib/
-           cp src/music_library.dart lib/
-           cp src/music_player.dart lib/
-
-      # 7. Patch build.gradle
+      # 6. Patch Gradle
       - name: Patch Gradle
         run: |
           cat > android/app/build.gradle <<'EOL'
@@ -72,7 +64,7 @@ jobs:
           }
           EOL
 
-      # 8. Patch AndroidManifest.xml
+      # 7. Patch AndroidManifest.xml
       - name: Patch AndroidManifest.xml
         run: |
           cat > android/app/src/main/AndroidManifest.xml <<'EOL'
@@ -123,15 +115,15 @@ jobs:
           </manifest>
           EOL
 
-      # 9. Install dependencies
+      # 8. Install dependencies
       - name: Install dependencies
         run: flutter pub get
 
-      # 10. Build release APK
+      # 9. Build release APK
       - name: Build release APK
         run: flutter build apk --release
 
-      # 11. Upload APK artifact
+      # 10. Upload APK artifact
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
