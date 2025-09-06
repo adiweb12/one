@@ -28,7 +28,7 @@ jobs:
         with:
           flutter-version: "3.24.3"
 
-      # 4. Clean + Recreate Android folder (forces V2 embedding)
+      # 4. Clean + Recreate Android folder
       - name: Recreate Android folder with V2 embedding
         run: |
           rm -rf android
@@ -37,36 +37,46 @@ jobs:
           sed -i 's/package="com.example.one"/package="com.adhimusic.app"/' android/app/src/main/AndroidManifest.xml
           sed -i 's/android:label="one"/android:label="AdhiMusic"/' android/app/src/main/AndroidManifest.xml
 
-      # 5. Add extra permissions to AndroidManifest.xml (without overwriting)
-      - name: Add permissions to AndroidManifest.xml
+      # 5. Fix Gradle config (compileSdk 35, targetSdk 35)
+      - name: Patch build.gradle
+        run: |
+          GRADLE="android/app/build.gradle"
+          sed -i 's/compileSdkVersion [0-9]\+/compileSdkVersion 35/' $GRADLE || true
+          sed -i 's/targetSdkVersion [0-9]\+/targetSdkVersion 35/' $GRADLE || true
+          sed -i 's/minSdkVersion [0-9]\+/minSdkVersion 21/' $GRADLE || true
+
+      # 6. Add permissions + JustAudio service
+      - name: Patch AndroidManifest.xml
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
 
-          if [ ! -f "$MANIFEST" ]; then
-            echo "❌ AndroidManifest.xml not found!"
-            exit 1
-          fi
-
+          # Add required permissions if missing
           for PERM in \
             "android.permission.READ_EXTERNAL_STORAGE" \
             "android.permission.WRITE_EXTERNAL_STORAGE" \
             "android.permission.RECORD_AUDIO" \
-            "android.permission.MODIFY_AUDIO_SETTINGS"
+            "android.permission.MODIFY_AUDIO_SETTINGS" \
+            "android.permission.READ_MEDIA_AUDIO"
           do
             if ! grep -q "$PERM" "$MANIFEST"; then
               sed -i "/<manifest/a\    <uses-permission android:name=\"$PERM\"/>" "$MANIFEST"
             fi
           done
 
-      # 6. Install dependencies
+          # Add JustAudio background service (only if not exists)
+          if ! grep -q "MediaBrowserService" "$MANIFEST"; then
+            sed -i "/<\/application>/i\        <service android:name=\"com.ryanheise.just_audio.MediaBrowserService\"\n            android:enabled=\"true\"\n            android:exported=\"true\"\n            android:foregroundServiceType=\"mediaPlayback\"\n            android:stopWithTask=\"false\">\n            <intent-filter>\n                <action android:name=\"android.media.browse.MediaBrowserService\" />\n            </intent-filter>\n        </service>" "$MANIFEST"
+          fi
+
+      # 7. Install dependencies
       - name: Install dependencies
         run: flutter pub get
 
-      # 7. Build APK
+      # 8. Build APK
       - name: Build release APK
         run: flutter build apk --release
 
-      # 8. Upload APK artifact
+      # 9. Upload APK artifact
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
