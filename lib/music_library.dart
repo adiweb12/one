@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:permission_handler/permission_handler.dart'; // 👈 add this
 import 'music_player.dart';
 
 class MusicLibraryPage extends StatefulWidget {
@@ -16,15 +17,25 @@ class _MusicLibraryPageState extends State<MusicLibraryPage> {
   int _currentIndex = 0;
 
   Future<void> pickSongs() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.audio,
-      allowMultiple: true,
-    );
+    // 👇 Check permission before opening FilePicker
+    if (await Permission.storage.request().isGranted) {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.audio,
+        allowMultiple: true,
+      );
 
-    if (result != null) {
-      setState(() {
-        _songs = result.paths.whereType<String>().toList();
-      });
+      if (result != null) {
+        setState(() {
+          _songs = result.paths.whereType<String>().toList();
+        });
+      }
+    } else {
+      // Show a simple message if denied
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Storage permission denied")),
+        );
+      }
     }
   }
 
