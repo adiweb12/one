@@ -64,6 +64,18 @@ jobs:
           }
           EOL
 
+      # 6. Overwrite MainActivity.kt with V2 embedding
+      - name: Configure MainActivity for V2 embedding
+        run: |
+          cat > android/app/src/main/kotlin/com/adhimusic/MainActivity.kt <<'EOL'
+          package com.adhimusic
+
+          import io.flutter.embedding.android.FlutterActivity
+
+               class MainActivity: FlutterActivity() {
+             }
+                      EOL
+
       # 7. Patch AndroidManifest.xml
       - name: Patch AndroidManifest.xml
         run: |
