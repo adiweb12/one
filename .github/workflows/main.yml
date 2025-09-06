@@ -28,16 +28,15 @@ jobs:
         with:
           flutter-version: "3.24.3"
 
-      # 4. Clean + recreate android folder
-      - name: Recreate Android folder with V2 embedding
+      # 4. Clean + recreate Android folder with V2 embedding
+      - name: Recreate Android folder
         run: |
           rm -rf android
           flutter create --org com.adhimusic --project-name adhimusic --template app .
 
-      # 5. Force correct Gradle + Manifest
-      - name: Patch Gradle & Manifest
+      # 5. Patch Gradle
+      - name: Patch Gradle
         run: |
-          # --- build.gradle ---
           cat > android/app/build.gradle <<'EOL'
           plugins {
               id "com.android.application"
@@ -63,11 +62,14 @@ jobs:
           }
           EOL
 
-          # --- AndroidManifest.xml ---
+      # 6. Patch AndroidManifest.xml
+      - name: Patch AndroidManifest.xml
+        run: |
           cat > android/app/src/main/AndroidManifest.xml <<'EOL'
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
               package="com.adhimusic.app">
 
+              <!-- Permissions -->
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
               <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
               <uses-permission android:name="android.permission.RECORD_AUDIO"/>
@@ -95,6 +97,7 @@ jobs:
                       </intent-filter>
                   </activity>
 
+                  <!-- JustAudio background service -->
                   <service
                       android:name="com.ryanheise.just_audio.MediaBrowserService"
                       android:enabled="true"
@@ -110,15 +113,15 @@ jobs:
           </manifest>
           EOL
 
-      # 6. Install dependencies
+      # 7. Install dependencies
       - name: Install dependencies
         run: flutter pub get
 
-      # 7. Build APK
+      # 8. Build release APK
       - name: Build release APK
         run: flutter build apk --release
 
-      # 8. Upload APK artifact
+      # 9. Upload APK artifact
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
