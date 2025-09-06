@@ -28,13 +28,23 @@ jobs:
         with:
           flutter-version: "3.24.3"
 
-      # 4. Clean + recreate Android folder with V2 embedding
-      - name: Recreate Android folder
-        run: |
-          rm -rf android
-          flutter create --org com.adhimusic --project-name adhimusic --template app .
+      # 4. Delete old Android folder
+      - name: Remove old Android folder
+        run: rm -rf android
 
-      # 5. Patch Gradle
+      # 5. Create fresh Flutter project (V2 embedding)
+      - name: Create new Flutter project
+        run: flutter create --org com.adhimusic --project-name adhimusic --template app .
+
+      # 6. Copy your Dart code into lib/
+      - name: Copy Dart code
+        run: |
+          mkdir -p lib
+          cp main.dart lib/
+          cp music_library.dart lib/
+          cp music_player.dart lib/
+
+      # 7. Patch build.gradle
       - name: Patch Gradle
         run: |
           cat > android/app/build.gradle <<'EOL'
@@ -62,7 +72,7 @@ jobs:
           }
           EOL
 
-      # 6. Patch AndroidManifest.xml
+      # 8. Patch AndroidManifest.xml
       - name: Patch AndroidManifest.xml
         run: |
           cat > android/app/src/main/AndroidManifest.xml <<'EOL'
@@ -113,15 +123,15 @@ jobs:
           </manifest>
           EOL
 
-      # 7. Install dependencies
+      # 9. Install dependencies
       - name: Install dependencies
         run: flutter pub get
 
-      # 8. Build release APK
+      # 10. Build release APK
       - name: Build release APK
         run: flutter build apk --release
 
-      # 9. Upload APK artifact
+      # 11. Upload APK artifact
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
