@@ -39,10 +39,10 @@ jobs:
       # 6. Copy your Dart code into lib/
       - name: Copy Dart code
         run: |
-          mkdir -p lib
-          cp main.dart lib/
-          cp music_library.dart lib/
-          cp music_player.dart lib/
+           mkdir -p lib
+           cp src/main.dart lib/
+           cp src/music_library.dart lib/
+           cp src/music_player.dart lib/
 
       # 7. Patch build.gradle
       - name: Patch Gradle
