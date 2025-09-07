@@ -11,63 +11,48 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout repository
+      # Checkout repo
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      # 2. Set up Java
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-
-      # 3. Set up Flutter
-      - name: Set up Flutter
+      # Install Flutter
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.24.3"
+          flutter-version: "3.24.0"
 
-      # 4. Recreate Android folder (V2 embedding)
-      - name: Recreate Android folder with V2 embedding
-        run: |
-          rm -rf android
-          flutter create .
-          # Replace default app id and label
-          sed -i 's/package="com.example.one"/package="com.adhimusic.app"/' android/app/src/main/AndroidManifest.xml
-          sed -i 's/android:label="one"/android:label="AdhiMusic"/' android/app/src/main/AndroidManifest.xml
-
-      # 5. Add local file permissions for Android 13+ playback
-      - name: Add permissions to AndroidManifest.xml
-        run: |
-          MANIFEST="android/app/src/main/AndroidManifest.xml"
-
-          if [ ! -f "$MANIFEST" ]; then
-            echo "❌ AndroidManifest.xml not found!"
-            exit 1
-          fi
-
-          for PERM in \
-            "android.permission.READ_MEDIA_AUDIO" \
-            "android.permission.FOREGROUND_SERVICE" \
-            "android.permission.POST_NOTIFICATIONS"
-          do
-            if ! grep -q "$PERM" "$MANIFEST"; then
-              sed -i "/<manifest/a\    <uses-permission android:name=\"$PERM\"/>" "$MANIFEST"
-            fi
-          done
-
-      # 6. Install dependencies
+      # Install dependencies
       - name: Install dependencies
         run: flutter pub get
 
-      # 7. Build APK
-      - name: Build release APK
+      # Ensure Android folder exists (in case auto-generated)
+      - name: Ensure Android folder
+        run: |
+          if [ ! -d "android" ]; then
+            flutter create .
+          fi
+
+      # Inject permissions into AndroidManifest.xml
+      - name: Add Android permissions
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          echo "Updating $MANIFEST"
+          sed -i '/<application/i \
+              <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/> \
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/> \
+              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/> \
+              <uses-permission android:name="android.permission.RECORD_AUDIO"/> \
+              <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/> \
+              <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>' $MANIFEST
+          cat $MANIFEST
+
+      # Build APK
+      - name: Build APK
         run: flutter build apk --release
 
-      # 8. Upload APK artifact
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      # Upload APK
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v3
         with:
-          name: release-apk
+          name: AdhiMusic-APK
           path: build/app/outputs/flutter-apk/app-release.apk
