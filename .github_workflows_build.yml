@@ -1,0 +1,38 @@
+name: Flutter APK Build
+
+on:
+  push:
+    branches:
+      - main  # or 'master' or your preferred branch
+
+jobs:
+  build-apk:
+    name: Build Flutter Android APK
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: ⬇️ Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: ⚙️ Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '11'
+          
+      - name: 🎯 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable' # Or 'beta' or 'dev'
+
+      - name: 📦 Get Flutter Dependencies
+        run: flutter pub get
+
+      - name: 🏗️ Build Android APK
+        run: flutter build apk --release
+
+      - name: 📤 Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: app-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
