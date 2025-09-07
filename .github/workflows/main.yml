@@ -2,57 +2,146 @@ name: Flutter Build APK
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
+    branches: [ main ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
-      # Checkout repo
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      # Install Flutter
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.24.0"
+          # pick a stable Flutter release you used locally; adjust if needed
+          flutter-version: '3.24.3'
 
-      # Install dependencies
-      - name: Install dependencies
+      # Recreate the android folder (forces Android embedding V2 from a fresh template)
+      - name: Recreate android/ folder (flutter create)
+        run: |
+          echo "⚠️ Removing old android/ folder and recreating (flutter create . --platforms=android)..."
+          rm -rf android
+          flutter create . --platforms=android
+          echo "✅ android/ regenerated."
+
+      # Install Dart/Flutter packages
+      - name: Flutter pub get
         run: flutter pub get
 
-      # Ensure Android folder exists (in case auto-generated)
-      - name: Ensure Android folder
+      # Safely add the permissions + ensure Android embedding v2 meta-data
+      - name: Ensure permissions + v2 embedding in AndroidManifest.xml
         run: |
-          if [ ! -d "android" ]; then
-            flutter create .
+          set -e
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+
+          if [ ! -f "$MANIFEST" ]; then
+            echo "❌ $MANIFEST not found - aborting"
+            exit 1
           fi
 
-      # Inject permissions into AndroidManifest.xml
-      - name: Add Android permissions
-        run: |
-          MANIFEST="android/app/src/main/AndroidManifest.xml"
-          echo "Updating $MANIFEST"
-          sed -i '/<application/i \
-              <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/> \
-              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/> \
-              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/> \
-              <uses-permission android:name="android.permission.RECORD_AUDIO"/> \
-              <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/> \
-              <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>' $MANIFEST
-          cat $MANIFEST
+          echo "Manifest found: $MANIFEST"
 
-      # Build APK
-      - name: Build APK
+          # Ensure package name is what you expect (optional). Comment out if you don't want to change it.
+          # If you prefer to keep the original package, remove the sed line below.
+          if grep -q 'package="com.adhimusic.app"' "$MANIFEST"; then
+            echo "package already set to com.adhimusic.app"
+          else
+            echo "Setting manifest package to com.adhimusic.app (if you want a different package, edit the workflow)"
+            sed -i 's/package="[a-zA-Z0-9_.-]*"/package="com.adhimusic.app"/' "$MANIFEST" || true
+          fi
+
+          # Permissions to ensure (only add if not present)
+          PERMISSIONS=(
+            "android.permission.READ_EXTERNAL_STORAGE"
+            "android.permission.WRITE_EXTERNAL_STORAGE"
+            "android.permission.INTERNET"
+            "android.permission.FOREGROUND_SERVICE"
+            "android.permission.READ_MEDIA_AUDIO"
+          )
+
+          for P in "${PERMISSIONS[@]}"; do
+            if ! grep -q "$P" "$MANIFEST"; then
+              echo "Adding permission $P"
+              # insert right after the <manifest ...> line
+              sed -i "/<manifest/a\    <uses-permission android:name=\"$P\"\/>" "$MANIFEST"
+            else
+              echo "Permission $P already present"
+            fi
+          done
+
+          # Ensure flutter embedding metadata exists inside <application>
+          if ! grep -q 'android:name="flutterEmbedding"' "$MANIFEST"; then
+            echo "Adding flutterEmbedding meta-data for v2 embedding"
+            sed -i '/<application/ a\        <meta-data android:name="flutterEmbedding" android:value="2"\/>' "$MANIFEST"
+          else
+            echo "flutterEmbedding meta-data already present"
+          fi
+
+          echo "✅ Manifest patched (permissions + embedding)."
+          echo "----- BEGIN manifest preview -----"
+          sed -n '1,160p' "$MANIFEST" || true
+          echo "----- END manifest preview -----"
+
+      # (Optional but recommended) try to update compile/target SDK to 35 so plugins requiring SDK 35 build
+      - name: Ensure compileSdk/targetSdk are >= 35 (safe adjustments)
+        run: |
+          set -e
+          APP_GRADLE="android/app/build.gradle"
+          if [ -f "$APP_GRADLE" ]; then
+            echo "Patching $APP_GRADLE -> set compileSdk/targetSdk/minSdk where possible."
+
+            # If older format compileSdkVersion N exists: replace it
+            if grep -q "compileSdkVersion [0-9]\+" "$APP_GRADLE"; then
+              sed -i 's/compileSdkVersion [0-9]\+/compileSdkVersion 35/' "$APP_GRADLE" || true
+            fi
+            # If newer Kotlin DSL style compileSdk = N exists: replace it
+            if grep -q "compileSdk = [0-9]\+" "$APP_GRADLE"; then
+              sed -i 's/compileSdk = [0-9]\+/compileSdk = 35/' "$APP_GRADLE" || true
+            else
+              # If neither exists, add compileSdk = 35 inside android { ... }
+              sed -i '/android {/a\    compileSdk = 35' "$APP_GRADLE" || true
+            fi
+
+            # targetSdkVersion => make 35
+            if grep -q "targetSdkVersion [0-9]\+" "$APP_GRADLE"; then
+              sed -i 's/targetSdkVersion [0-9]\+/targetSdkVersion 35/' "$APP_GRADLE" || true
+            fi
+            if grep -q "targetSdk = [0-9]\+" "$APP_GRADLE"; then
+              sed -i 's/targetSdk = [0-9]\+/targetSdk = 35/' "$APP_GRADLE" || true
+            fi
+
+            # ensure a reasonable minSdk if not present (21)
+            if ! grep -q "minSdkVersion [0-9]\+" "$APP_GRADLE" && ! grep -q "minSdk = [0-9]\+" "$APP_GRADLE"; then
+              # insert inside defaultConfig
+              sed -i '/defaultConfig {/a\        minSdkVersion 21' "$APP_GRADLE" || true
+            else
+              sed -i 's/minSdkVersion [0-9]\+/minSdkVersion 21/' "$APP_GRADLE" || true
+              sed -i 's/minSdk = [0-9]\+/minSdk = 21/' "$APP_GRADLE" || true
+            fi
+
+            echo "Patched build.gradle preview:"
+            sed -n '1,260p' "$APP_GRADLE" || true
+          else
+            echo "No android/app/build.gradle found — skipping SDK patch."
+          fi
+
+      # Build release apk
+      - name: Build release APK
         run: flutter build apk --release
 
-      # Upload APK
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AdhiMusic-APK
+          name: release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
