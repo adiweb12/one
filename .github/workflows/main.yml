@@ -52,7 +52,7 @@ jobs:
 
       # Upload APK
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: AdhiMusic-APK
           path: build/app/outputs/flutter-apk/app-release.apk
