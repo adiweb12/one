@@ -28,114 +28,44 @@ jobs:
         with:
           flutter-version: "3.24.3"
 
-      # 4. Delete old Android folder
-      - name: Remove old Android folder
-        run: rm -rf android
-
-      # 5. Create fresh Flutter project (V2 embedding)
-      - name: Create new Flutter project
-        run: flutter create --org com.adhimusic --project-name adhimusic --template app .
-
-      # 6. Patch Gradle
-      - name: Patch Gradle
+      # 4. Recreate Android folder (V2 embedding)
+      - name: Recreate Android folder with V2 embedding
         run: |
-          cat > android/app/build.gradle <<'EOL'
-          plugins {
-              id "com.android.application"
-              id "kotlin-android"
-              id "dev.flutter.flutter-gradle-plugin"
-          }
+          rm -rf android
+          flutter create .
+          # Replace default app id and label
+          sed -i 's/package="com.example.one"/package="com.adhimusic.app"/' android/app/src/main/AndroidManifest.xml
+          sed -i 's/android:label="one"/android:label="AdhiMusic"/' android/app/src/main/AndroidManifest.xml
 
-          android {
-              namespace "com.adhimusic.app"
-              compileSdk = 35
-
-              defaultConfig {
-                  applicationId "com.adhimusic.app"
-                  minSdk = 21
-                  targetSdk = 35
-                  versionCode 1
-                  versionName "1.0"
-              }
-          }
-
-          flutter {
-              source = "../.."
-          }
-          EOL
-
-      # 6. Overwrite MainActivity.kt with V2 embedding
-      - name: Configure MainActivity for V2 embedding
+      # 5. Add local file permissions for Android 13+ playback
+      - name: Add permissions to AndroidManifest.xml
         run: |
-          cat > android/app/src/main/kotlin/com/adhimusic/MainActivity.kt <<'EOL'
-          package com.adhimusic
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
 
-          import io.flutter.embedding.android.FlutterActivity
+          if [ ! -f "$MANIFEST" ]; then
+            echo "❌ AndroidManifest.xml not found!"
+            exit 1
+          fi
 
-               class MainActivity: FlutterActivity() {
-             }
-                      EOL
+          for PERM in \
+            "android.permission.READ_MEDIA_AUDIO" \
+            "android.permission.FOREGROUND_SERVICE" \
+            "android.permission.POST_NOTIFICATIONS"
+          do
+            if ! grep -q "$PERM" "$MANIFEST"; then
+              sed -i "/<manifest/a\    <uses-permission android:name=\"$PERM\"/>" "$MANIFEST"
+            fi
+          done
 
-      # 7. Patch AndroidManifest.xml
-      - name: Patch AndroidManifest.xml
-        run: |
-          cat > android/app/src/main/AndroidManifest.xml <<'EOL'
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-              package="com.adhimusic.app">
-
-              <!-- Permissions -->
-              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
-              <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-              <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
-              <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
-
-              <application
-                  android:label="AdhiMusic"
-                  android:name="${applicationName}"
-                  android:icon="@mipmap/ic_launcher"
-                  android:usesCleartextTraffic="true">
-
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true"
-                      android:launchMode="singleTop"
-                      android:theme="@style/LaunchTheme"
-                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-                      android:hardwareAccelerated="true"
-                      android:windowSoftInputMode="adjustResize">
-
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/>
-                      </intent-filter>
-                  </activity>
-
-                  <!-- JustAudio background service -->
-                  <service
-                      android:name="com.ryanheise.just_audio.MediaBrowserService"
-                      android:enabled="true"
-                      android:exported="true"
-                      android:foregroundServiceType="mediaPlayback"
-                      android:stopWithTask="false">
-                      <intent-filter>
-                          <action android:name="android.media.browse.MediaBrowserService"/>
-                      </intent-filter>
-                  </service>
-
-              </application>
-          </manifest>
-          EOL
-
-      # 8. Install dependencies
+      # 6. Install dependencies
       - name: Install dependencies
         run: flutter pub get
 
-      # 9. Build release APK
+      # 7. Build APK
       - name: Build release APK
         run: flutter build apk --release
 
-      # 10. Upload APK artifact
+      # 8. Upload APK artifact
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
