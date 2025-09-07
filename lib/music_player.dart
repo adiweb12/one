@@ -60,7 +60,15 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
   void _handlePrevious() {
     if (_currentIndex > 0) {
       _playSong(_currentIndex - 1);
+    } else if (_isRepeat) {
+      _playSong(widget.songs.length - 1);
     }
+  }
+
+  @override
+  void dispose() {
+    widget.audioPlayer.stop();
+    super.dispose();
   }
 
   @override
@@ -75,9 +83,54 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(songName,
+            // Song title
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                songName,
                 style: const TextStyle(
-                    fontSize: 24, fontWeight: FontWeight.bold)),
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Seek bar
+            StreamBuilder<Duration>(
+              stream: widget.audioPlayer.positionStream,
+              builder: (context, snapshot) {
+                final position = snapshot.data ?? Duration.zero;
+                final duration =
+                    widget.audioPlayer.duration ?? Duration.zero;
+
+                return Column(
+                  children: [
+                    Slider(
+                      value: position.inSeconds.toDouble().clamp(0, duration.inSeconds.toDouble()),
+                      max: duration.inSeconds.toDouble(),
+                      onChanged: (value) {
+                        widget.audioPlayer
+                            .seek(Duration(seconds: value.toInt()));
+                      },
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(_formatDuration(position)),
+                          Text(_formatDuration(duration)),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+
             const SizedBox(height: 20),
 
             // Controls
@@ -126,5 +179,12 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
         ),
       ),
     );
+  }
+
+  String _formatDuration(Duration d) {
+    String twoDigits(int n) => n.toString().padLeft(2, "0");
+    final minutes = twoDigits(d.inMinutes.remainder(60));
+    final seconds = twoDigits(d.inSeconds.remainder(60));
+    return "$minutes:$seconds";
   }
 }
