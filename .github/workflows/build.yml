@@ -1,38 +1,62 @@
-name: Flutter APK Build
+name: Flutter CI
 
 on:
   push:
     branches:
-      - main  # or 'master' or your preferred branch
+      - main
+  pull_request:
 
 jobs:
-  build-apk:
-    name: Build Flutter Android APK
+  build:
     runs-on: ubuntu-latest
-    
-    steps:
-      - name: ⬇️ Checkout Repository
-        uses: actions/checkout@v3
 
-      - name: ⚙️ Setup Java
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'zulu'
-          java-version: '11'
-          
-      - name: 🎯 Setup Flutter
+    steps:
+      # Checkout repo
+      - name: Checkout repository
+        uses: actions/checkout@v4   # 🔄 updated to latest
+
+      # Setup Flutter
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable' # Or 'beta' or 'dev'
+          flutter-version: '3.24.3'   # adjust if needed
 
-      - name: 📦 Get Flutter Dependencies
+      # Install dependencies
+      - name: Install dependencies
         run: flutter pub get
 
-      - name: 🏗️ Build Android APK
+      # ⚠️ Always regenerate android folder (forces V2 embedding)
+      - name: Regenerate android folder
+        run: |
+          echo "⚠️ Removing old android/ folder and recreating..."
+          rm -rf android
+          flutter create . --platforms=android
+
+      # ✅ Add Internet permission + set custom launcher icon in AndroidManifest.xml
+      - name: Patch AndroidManifest.xml
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+
+          # Add INTERNET permission before <application>
+          sed -i '/<application/i\
+          <uses-permission android:name="android.permission.INTERNET"/>' $MANIFEST
+
+          # Ensure app uses your launcher icon
+          sed -i 's/android:icon="@mipmap\/ic_launcher"/android:icon="@mipmap\/launcher_icon"/' $MANIFEST
+
+          echo "✅ Patched AndroidManifest.xml"
+
+      # Run flutter_launcher_icons (your image/logo.png)
+      - name: Generate launcher icons
+        run: flutter pub run flutter_launcher_icons
+
+      # Build APK
+      - name: Build release APK
         run: flutter build apk --release
 
-      - name: 📤 Upload Artifact
-        uses: actions/upload-artifact@v4
+      # Upload artifact
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4   # 🔄 upgraded to v4
         with:
-          name: app-release-apk
+          name: release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
