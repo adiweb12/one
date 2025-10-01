@@ -1,4 +1,4 @@
-name: One
+name: one
 description: A Flutter project for login, group creation, and profile pages.
 publish_to: "none"
 
@@ -13,8 +13,13 @@ dependencies:
 
   cupertino_icons: ^1.0.8
   http: ^1.1.0
-  # 👇 Add this line for secure storage
+  
+  # For secure token/credential storage
   flutter_secure_storage: ^9.0.0
+
+  # 👇 Dependencies for Offline Data Store (SQFLite)
+  sqflite: ^2.3.0 
+  path: ^1.8.3 
 
 dev_dependencies:
   flutter_test:
@@ -30,4 +35,3 @@ flutter_launcher_icons:
 
 flutter:
   uses-material-design: true
-  
