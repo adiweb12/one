@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // <-- NEW SECURE IMPORT
 
 void main() {
   runApp(MyApp());
@@ -10,6 +10,9 @@ void main() {
 
 // Ensure this IP is correct for your deployed server
 const String SERVER_IP = "onechatjdifivifrrfigiufitxtd6xy.onrender.com";
+
+// Create storage instance
+const _storage = FlutterSecureStorage(); // <-- GLOBAL STORAGE INSTANCE
 
 class MyApp extends StatelessWidget {
   @override
@@ -48,11 +51,12 @@ class _LoginPageState extends State<LoginPage> {
     checkLoginStatus();
   }
 
+  // Uses flutter_secure_storage to check for a stored token
   Future<void> checkLoginStatus() async {
     try {
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      final String? token = prefs.getString('token');
-      final String? username = prefs.getString('username');
+      // Retrieve the token and username securely
+      final String? token = await _storage.read(key: 'token');
+      final String? username = await _storage.read(key: 'username');
 
       if (token != null && username != null) {
         // We have a stored token, navigate directly to the main page
@@ -65,10 +69,9 @@ class _LoginPageState extends State<LoginPage> {
         return; // Stop here if navigation occurs
       }
     } catch (e) {
-      print("Error checking login status: $e");
+      print("Error checking secure storage: $e");
     } finally {
       if (mounted) {
-        // Set loading to false only if we are still on the login page
         setState(() => _isLoading = false);
       }
     }
@@ -96,12 +99,11 @@ class _LoginPageState extends State<LoginPage> {
 
       if (data['success']) {
         String token = data['token'];
-        
-        // --- Store Token and Username ---
-        final SharedPreferences prefs = await SharedPreferences.getInstance();
-        await prefs.setString('token', token);
-        await prefs.setString('username', username);
-        // --------------------------------
+
+        // --- Store Token and Username SECURELY ---
+        await _storage.write(key: 'token', value: token);
+        await _storage.write(key: 'username', value: username);
+        // ------------------------------------------
 
         Navigator.pushReplacement(
           context,
@@ -363,7 +365,7 @@ class _MainPageState extends State<MainPage> {
           });
         }
       } else {
-        // Token might be invalid/expired, force logout
+        // Token might be invalid/expired, force secure logout
         if (mounted) {
           _forceLogout();
         }
@@ -378,9 +380,9 @@ class _MainPageState extends State<MainPage> {
   }
 
   void _forceLogout() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.remove('token');
-    await prefs.remove('username');
+    // Clear token from secure storage
+    await _storage.delete(key: 'token');
+    await _storage.delete(key: 'username');
 
     Navigator.pushAndRemoveUntil(
       context,
@@ -710,10 +712,9 @@ class _ProfilePageState extends State<ProfilePage> {
       print("Error during server logout: $e");
     }
 
-    // 2. Clear token from device storage
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.remove('token');
-    await prefs.remove('username'); // Clear username as well
+    // 2. Clear token from secure storage
+    await _storage.delete(key: 'token');
+    await _storage.delete(key: 'username'); 
 
     // 3. Navigate back to Login Page and clear navigation stack
     Navigator.pushAndRemoveUntil(
@@ -855,14 +856,12 @@ class _ChatPageState extends State<ChatPage> {
             List<Map<String, dynamic>>.from(data['messages'] as List<dynamic>);
 
         if (mounted) {
-          // Check if there are new messages that should trigger a scroll
           bool shouldScroll = newMessages.length > messages.length;
 
           setState(() {
             messages = newMessages;
           });
 
-          // Only scroll to bottom if it's not polling or if new messages arrived
           if (shouldScroll) {
             _scrollToBottom();
           }
@@ -870,7 +869,6 @@ class _ChatPageState extends State<ChatPage> {
       }
     } catch (e) {
       print("Error fetching messages: $e");
-      // If it's not polling (i.e., manual refresh), show the error
       if (!isPolling && mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error fetching messages: $e')));
@@ -898,7 +896,6 @@ class _ChatPageState extends State<ChatPage> {
 
       if (data['success']) {
         messageController.clear();
-        // Fetch messages immediately to update the chat view
         await fetchMessages(); 
       } else {
         if (mounted) {
