@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // <-- NEW SECURE IMPORT
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 void main() {
   runApp(MyApp());
 }
 
-// Ensure this IP is correct for your deployed server
+// ⚠️ CHANGE THIS TO YOUR DEPLOYED FLASK SERVER URL
 const String SERVER_IP = "onechatjdifivifrrfigiufitxtd6xy.onrender.com";
 
-// Create storage instance
-const _storage = FlutterSecureStorage(); // <-- GLOBAL STORAGE INSTANCE
+// Global storage instance for secure token handling
+const _storage = FlutterSecureStorage();
 
 class MyApp extends StatelessWidget {
   @override
@@ -54,19 +54,17 @@ class _LoginPageState extends State<LoginPage> {
   // Uses flutter_secure_storage to check for a stored token
   Future<void> checkLoginStatus() async {
     try {
-      // Retrieve the token and username securely
       final String? token = await _storage.read(key: 'token');
       final String? username = await _storage.read(key: 'username');
 
       if (token != null && username != null) {
-        // We have a stored token, navigate directly to the main page
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder: (_) => MainPage(username: username, token: token),
           ),
         );
-        return; // Stop here if navigation occurs
+        return;
       }
     } catch (e) {
       print("Error checking secure storage: $e");
@@ -128,7 +126,6 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Show a loading indicator if we are checking for a stored token
     if (_isLoading) {
       return Scaffold(
         backgroundColor: Colors.blue[900],
@@ -170,7 +167,8 @@ class _LoginPageState extends State<LoginPage> {
                   controller: passwordController,
                   obscureText: true,
                   decoration: const InputDecoration(
-                    hintText: '123$%^gkf',
+                    // FIX 1: Escaped $ for literal character in string
+                    hintText: '123\$\%^gkf',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.lock),
                   ),
@@ -188,7 +186,8 @@ class _LoginPageState extends State<LoginPage> {
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: () => SignUpPage()),
+                      // FIX 2: Correct builder signature
+                      MaterialPageRoute(builder: (context) => SignUpPage()),
                     );
                   },
                   child: Text(
@@ -405,7 +404,8 @@ class _MainPageState extends State<MainPage> {
               await Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: () =>
+                    // FIX 3: Correct builder signature
+                    builder: (context) =>
                         ProfilePage(username: widget.username, token: widget.token)),
               );
               refreshGroups(); // Refresh groups after potentially updating name
@@ -466,7 +466,8 @@ class _MainPageState extends State<MainPage> {
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: () =>
+                          // FIX 4: Correct builder signature
+                          builder: (context) =>
                               CreatePage(username: widget.username, token: widget.token)),
                     );
                     await refreshGroups();
@@ -479,7 +480,8 @@ class _MainPageState extends State<MainPage> {
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: () =>
+                          // FIX 5: Correct builder signature
+                          builder: (context) =>
                               JoinPage(username: widget.username, token: widget.token)),
                     );
                     await refreshGroups();
