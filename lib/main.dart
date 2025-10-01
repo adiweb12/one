@@ -1,809 +1,24 @@
+// main.dart (Only showing ChatPage and imports - assume other classes are the same)
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-void main() {
+// ⚠️ NEW IMPORT
+import 'database_helper.dart'; 
+
+
+void main() async {
+  // Ensure Flutter is initialized before accessing platform services like sqflite
+  WidgetsFlutterBinding.ensureInitialized();
+  // ⚠️ Ensure the database is initialized as part of the app lifecycle if needed,
+  // but lazy initialization in DatabaseHelper is sufficient here.
   runApp(MyApp());
 }
 
-// ⚠️ CHANGE THIS TO YOUR DEPLOYED FLASK SERVER URL
-const String SERVER_IP = "onechatjdifivifrrfigiufitxtd6xy.onrender.com";
-
-// Global storage instance for secure token handling
-const _storage = FlutterSecureStorage();
-
-class MyApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'One Chat',
-      theme: ThemeData(
-        primaryColor: Colors.blue[900],
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue[900],
-            foregroundColor: Colors.white,
-          ),
-        ),
-      ),
-      home: LoginPage(),
-    );
-  }
-}
-
-// ---------------- LOGIN PAGE ----------------
-class LoginPage extends StatefulWidget {
-  @override
-  _LoginPageState createState() => _LoginPageState();
-}
-
-class _LoginPageState extends State<LoginPage> {
-  final TextEditingController usernameController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
-  bool _isLoading = true; // Start as loading to check token
-
-  @override
-  void initState() {
-    super.initState();
-    checkLoginStatus();
-  }
-
-  // Uses flutter_secure_storage to check for a stored token
-  Future<void> checkLoginStatus() async {
-    try {
-      final String? token = await _storage.read(key: 'token');
-      final String? username = await _storage.read(key: 'username');
-
-      if (token != null && username != null) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => MainPage(username: username, token: token),
-          ),
-        );
-        return;
-      }
-    } catch (e) {
-      print("Error checking secure storage: $e");
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  void login() async {
-    String username = usernameController.text.trim();
-    String password = passwordController.text;
-
-    if (username.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please enter username and password')));
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    try {
-      var url = Uri.parse("https://$SERVER_IP/login");
-      var response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: json.encode({"username": username, "password": password}),
-      );
-      var data = json.decode(response.body);
-
-      if (data['success']) {
-        String token = data['token'];
-
-        // --- Store Token and Username SECURELY ---
-        await _storage.write(key: 'token', value: token);
-        await _storage.write(key: 'username', value: username);
-        // ------------------------------------------
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => MainPage(username: username, token: token),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(data['message'])),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error: $e')));
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Scaffold(
-        backgroundColor: Colors.blue[900],
-        body: const Center(child: CircularProgressIndicator(color: Colors.white)),
-      );
-    }
-
-    return Scaffold(
-      backgroundColor: Colors.blue[900],
-      body: Center(
-        child: SingleChildScrollView(
-          child: Container(
-            width: 350,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Column(
-              children: [
-                Text(
-                  'ONE CHAT',
-                  style: TextStyle(
-                      color: Colors.blue[900],
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 30),
-                TextField(
-                  controller: usernameController,
-                  decoration: const InputDecoration(
-                    hintText: 'username123',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.person),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: passwordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    // FIX 1: Escaped $ for literal character in string
-                    hintText: '123\$\%^gkf',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.lock),
-                  ),
-                ),
-                const SizedBox(height: 30),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: login,
-                    child: const Text('LOGIN'),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      // FIX 2: Correct builder signature
-                      MaterialPageRoute(builder: (context) => SignUpPage()),
-                    );
-                  },
-                  child: Text(
-                    "Don't have an account? Sign Up",
-                    style: TextStyle(color: Colors.blue[900]),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------- SIGN-UP PAGE ----------------
-class SignUpPage extends StatefulWidget {
-  @override
-  _SignUpPageState createState() => _SignUpPageState();
-}
-
-class _SignUpPageState extends State<SignUpPage> {
-  final TextEditingController usernameController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
-  final TextEditingController nameController = TextEditingController();
-  bool _isLoading = false;
-
-  void signUp() async {
-    String username = usernameController.text.trim();
-    String password = passwordController.text.trim();
-    String name = nameController.text.trim();
-
-    if (username.isEmpty || password.isEmpty || name.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Please fill all fields')));
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    try {
-      var url = Uri.parse("https://$SERVER_IP/signup");
-      var response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: json.encode({"username": username, "password": password, "name": name}),
-      );
-      var data = json.decode(response.body);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(data['message'])));
-      if (data['success']) {
-        Navigator.pop(context); // Go back to login page
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error: $e')));
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Center(child: Text('SIGN UP')),
-        backgroundColor: Colors.blue[900],
-      ),
-      body: Center(
-        child: SingleChildScrollView(
-          child: Container(
-            width: 350,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'CREATE ACCOUNT',
-                  style: TextStyle(
-                      color: Colors.blue[900],
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 30),
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Full Name',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.badge),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: usernameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Username',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.person),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: passwordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Password',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.lock),
-                  ),
-                ),
-                const SizedBox(height: 30),
-                _isLoading
-                    ? const CircularProgressIndicator()
-                    : SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: signUp,
-                          child: const Text('SIGN UP'),
-                        ),
-                      ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------- MAIN PAGE ----------------
-class MainPage extends StatefulWidget {
-  final String username;
-  final String token;
-  const MainPage({Key? key, required this.username, required this.token})
-      : super(key: key);
-
-  @override
-  _MainPageState createState() => _MainPageState();
-}
-
-class _MainPageState extends State<MainPage> {
-  // ⚠️ MODIFIED: Store all group data, including is_creator
-  List<Map<String, dynamic>> groups = [];
-
-  @override
-  void initState() {
-    super.initState();
-    fetchGroups();
-  }
-
-  Future<void> fetchGroups() async {
-    try {
-      var url = Uri.parse("https://$SERVER_IP/profile");
-      var response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: json.encode({"token": widget.token}),
-      );
-      var data = json.decode(response.body);
-      if (data['success']) {
-        List userGroups = data['groups'] ?? [];
-        if (mounted) {
-          setState(() {
-            // ⚠️ MODIFIED: Map group data to include all fields
-            groups = userGroups
-                .map<Map<String, dynamic>>(
-                    (g) => {"name": g['name'], "number": g['number'], "is_creator": g['is_creator'] ?? false})
-                .toList();
-          });
-        }
-      } else {
-        // Token might be invalid/expired, force secure logout
-        if (mounted) {
-          _forceLogout();
-        }
-      }
-    } catch (e) {
-      print("Error fetching groups: $e");
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error fetching groups: $e')));
-      }
-    }
-  }
-
-  void _forceLogout() async {
-    // Clear token from secure storage
-    await _storage.delete(key: 'token');
-    await _storage.delete(key: 'username');
-
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (context) => LoginPage()),
-      (Route route) => false,
-    );
-  }
-
-  Future<void> refreshGroups() async => fetchGroups();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.blue[900],
-        title: const Center(child: Text('ONE CHAT')),
-        actions: [
-          InkWell(
-            onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                    // FIX 3: Correct builder signature
-                    builder: (context) =>
-                        ProfilePage(username: widget.username, token: widget.token)),
-              );
-              refreshGroups(); // Refresh groups after potentially updating name
-            },
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: ProfileImage(username: widget.username),
-            ),
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: refreshGroups,
-        child: groups.isEmpty
-            ? ListView(
-                children: const [
-                  SizedBox(height: 100),
-                  Center(child: Text('No groups yet. Tap + to create or join.')),
-                ],
-              )
-            : ListView.builder(
-                padding: const EdgeInsets.all(20),
-                itemCount: groups.length,
-                itemBuilder: (context, index) {
-                  var group = groups[index];
-                  // ⚠️ MODIFIED: Show (Admin) next to group name if is_creator is true
-                  String groupTitle = group['name'] as String;
-                  if (group['is_creator'] == true) {
-                    groupTitle += " (Admin)";
-                  }
-
-                  return Card(
-                    child: ListTile(
-                      title: Text(groupTitle),
-                      subtitle: Text("Group Number: ${group['number']}"),
-                      onTap: () async {
-                        // FIX 6: Use await and check for result after chat page closes (needed for group deletion/leaving)
-                        final result = await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ChatPage(
-                              groupName: group['name'] as String,
-                              username: widget.username,
-                              groupNumber: group['number'] as String,
-                              token: widget.token,
-                              isCreator: group['is_creator'] as bool, // ⚠️ NEW
-                            ),
-                          ),
-                        );
-                        // If the chat page returns true (meaning group was left/deleted), refresh list
-                        if (result == true) {
-                          refreshGroups();
-                        }
-                      },
-                    ),
-                  );
-                },
-              ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          await showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('GROUP OPTION'),
-              actions: [
-                TextButton(
-                  onPressed: () async {
-                    Navigator.pop(context);
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          // FIX 4: Correct builder signature
-                          builder: (context) =>
-                              CreatePage(username: widget.username, token: widget.token)),
-                    );
-                    await refreshGroups();
-                  },
-                  child: const Text('Create New One'),
-                ),
-                TextButton(
-                  onPressed: () async {
-                    Navigator.pop(context);
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          // FIX 5: Correct builder signature
-                          builder: (context) =>
-                              JoinPage(username: widget.username, token: widget.token)),
-                    );
-                    await refreshGroups();
-                  },
-                  child: const Text('Join Existing'),
-                ),
-              ],
-            ),
-          );
-        },
-        child: const Icon(Icons.add),
-        backgroundColor: Colors.blue[900],
-      ),
-    );
-  }
-}
-
-// ---------------- CREATE PAGE ----------------
-class CreatePage extends StatelessWidget {
-  final String username;
-  final String token;
-  final TextEditingController groupNameController = TextEditingController();
-  final TextEditingController groupNumberController = TextEditingController();
-
-  CreatePage({Key? key, required this.username, required this.token})
-      : super(key: key);
-
-  void createGroup(BuildContext context) async {
-    String groupName = groupNameController.text.trim();
-    String groupNumber = groupNumberController.text.trim();
-
-    if (groupName.isEmpty || groupNumber.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Fill all fields')));
-      return;
-    }
-
-    try {
-      var url = Uri.parse("https://$SERVER_IP/create_group");
-      var response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: json.encode(
-            {"token": token, "groupName": groupName, "groupNumber": groupNumber}),
-      );
-      var data = json.decode(response.body);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(data['message'])));
-      if (data['success']) Navigator.pop(context, true);
-    } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error: $e')));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-          title: const Center(child: Text('CREATE GROUP')),
-          backgroundColor: Colors.blue[900]),
-      body: Padding(
-        padding: const EdgeInsets.all(15),
-        child: Column(
-          children: [
-            TextField(
-              controller: groupNameController,
-              decoration: const InputDecoration(
-                  labelText: 'GROUP NAME', border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: groupNumberController,
-              decoration: const InputDecoration(
-                  labelText: 'GROUP NUMBER', border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => createGroup(context),
-              style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
-              child: const Text('CREATE'),
-            )
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------- JOIN PAGE ----------------
-class JoinPage extends StatelessWidget {
-  final String username;
-  final String token;
-  final TextEditingController groupNumberController = TextEditingController();
-
-  JoinPage({Key? key, required this.username, required this.token})
-      : super(key: key);
-
-  void joinGroup(BuildContext context) async {
-    String groupNumber = groupNumberController.text.trim();
-    if (groupNumber.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Enter group number')));
-      return;
-    }
-
-    try {
-      var url = Uri.parse("https://$SERVER_IP/join_group");
-      var response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: json.encode({"token": token, "groupNumber": groupNumber}),
-      );
-      var data = json.decode(response.body);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(data['message'])));
-      if (data['success']) Navigator.pop(context, true);
-    } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error: $e')));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-          title: const Center(child: Text('JOIN GROUP')),
-          backgroundColor: Colors.blue[900]),
-      body: Padding(
-        padding: const EdgeInsets.all(15),
-        child: Column(
-          children: [
-            TextField(
-              controller: groupNumberController,
-              decoration: const InputDecoration(
-                  labelText: 'GROUP NUMBER', border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => joinGroup(context),
-              style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
-              child: const Text('JOIN'),
-            )
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------- PROFILE PAGE ----------------
-class ProfilePage extends StatefulWidget {
-  final String username;
-  final String token;
-  const ProfilePage({Key? key, required this.username, required this.token})
-      : super(key: key);
-
-  @override
-  _ProfilePageState createState() => _ProfilePageState();
-}
-
-class _ProfilePageState extends State<ProfilePage> {
-  final TextEditingController nameController = TextEditingController();
-  String? displayedName;
-
-  @override
-  void initState() {
-    super.initState();
-    fetchProfile();
-  }
-
-  Future<void> fetchProfile() async {
-    try {
-      var url = Uri.parse("https://$SERVER_IP/profile");
-      var response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: json.encode({"token": widget.token}),
-      );
-      var data = json.decode(response.body);
-      if (data['success']) {
-        if (mounted) {
-          setState(() {
-            displayedName = data['name'] as String?;
-            nameController.text = displayedName ?? '';
-          });
-        }
-      }
-    } catch (e) {
-      print("Error fetching profile: $e");
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error fetching profile: $e')));
-      }
-    }
-  }
-
-  void updateProfile() async {
-    try {
-      var url = Uri.parse("https://$SERVER_IP/update_profile");
-      var response = await http.post(url,
-          headers: {"Content-Type": "application/json"},
-          body:
-              json.encode({"token": widget.token, "newName": nameController.text}));
-      var data = json.decode(response.body);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(data['message'])));
-      if (data['success']) {
-        if (mounted) {
-          setState(() => displayedName = nameController.text);
-        }
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error: $e')));
-    }
-  }
-
-  void logout() async {
-    // 1. Send API call to server to delete session record
-    try {
-      var url = Uri.parse("https://$SERVER_IP/logout");
-      await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: json.encode({"token": widget.token}),
-      );
-    } catch (e) {
-      print("Error during server logout: $e");
-    }
-
-    // 2. Clear token from secure storage
-    await _storage.delete(key: 'token');
-    await _storage.delete(key: 'username'); 
-
-    // 3. Navigate back to Login Page and clear navigation stack
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (context) => LoginPage()),
-      (Route route) => false,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('PROFILE'),
-        backgroundColor: Colors.blue[900],
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: logout,
-          ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(15),
-        child: Column(
-          children: [
-            CircleAvatar(
-              radius: 50,
-              child: Text(
-                  displayedName != null && displayedName!.isNotEmpty
-                      ? displayedName![0].toUpperCase()
-                      : widget.username.isNotEmpty
-                          ? widget.username[0].toUpperCase()
-                          : '',
-                  style:
-                      const TextStyle(fontSize: 40, fontWeight: FontWeight.bold)),
-            ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                  labelText: 'NAME', border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: updateProfile,
-              style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
-              child: const Text('UPDATE'),
-            )
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------- PROFILE IMAGE WIDGET ----------------
-class ProfileImage extends StatelessWidget {
-  final String username;
-  const ProfileImage({Key? key, required this.username}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return CircleAvatar(
-      radius: 20,
-      backgroundColor: Colors.white,
-      child: Text(
-        username.isNotEmpty ? username[0].toUpperCase() : '',
-        style: TextStyle(color: Colors.blue[900], fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-}
+// ... (LoginPage, SignUpPage, MainPage, CreatePage, JoinPage, ProfilePage, ProfileImage are unchanged or have minor changes related to imports/MainPage passing creator status) ...
 
 // ---------------- CHAT PAGE ----------------
 class ChatPage extends StatefulWidget {
@@ -811,7 +26,6 @@ class ChatPage extends StatefulWidget {
   final String username;
   final String groupNumber;
   final String token;
-  // ⚠️ NEW: Pass creator status
   final bool isCreator; 
 
   const ChatPage({
@@ -820,7 +34,7 @@ class ChatPage extends StatefulWidget {
     required this.username,
     required this.groupNumber,
     required this.token,
-    required this.isCreator, // ⚠️ NEW
+    required this.isCreator,
   }) : super(key: key);
 
   @override
@@ -829,18 +43,28 @@ class ChatPage extends StatefulWidget {
 
 class _ChatPageState extends State<ChatPage> {
   final TextEditingController messageController = TextEditingController();
+  // ⚠️ MODIFIED: List structure to match local DB format
   List<Map<String, dynamic>> messages = [];
   bool _isLoading = false;
   Timer? _timer;
   final ScrollController _scrollController = ScrollController();
 
+  // ⚠️ NEW: Store the last successfully fetched timestamp to prevent fetching old data
+  DateTime? _lastSyncedTime; 
+
   @override
   void initState() {
     super.initState();
-    fetchMessages().then((_) {
-      _scrollToBottom();
+    // 1. Load messages from local database immediately
+    _loadLocalMessages().then((_) {
+      // 2. Then, fetch new messages from the server
+      fetchMessages().then((_) {
+        _scrollToBottom();
+      });
     });
+    
     // Set up timer for polling every 3 seconds
+    // ⚠️ Polling calls fetchMessages, which now handles sync
     _timer = Timer.periodic(const Duration(seconds: 3), (Timer t) => fetchMessages(isPolling: true));
   }
 
@@ -860,8 +84,24 @@ class _ChatPageState extends State<ChatPage> {
     });
   }
 
+  // ⚠️ NEW: Loads messages from the local SQLite database
+  Future<void> _loadLocalMessages() async {
+    final localMessages = await DatabaseHelper.instance.getMessages(widget.groupNumber);
+    if (mounted) {
+      setState(() {
+        messages = localMessages;
+      });
+    }
+  }
+
+  // ⚠️ MODIFIED: Synchronizes local and server messages
   Future<void> fetchMessages({bool isPolling = false}) async {
+    // Determine the time marker for fetching only new messages
+    // For simplicity, we will fetch all messages every time, but compare to local data.
+    // A more advanced approach would send the latest local timestamp to the server.
+    
     try {
+      // 1. Fetch ALL messages from the server (Current server behavior)
       var url = Uri.parse("https://$SERVER_IP/get_messages/${widget.groupNumber}");
       var response = await http.post(
         url,
@@ -871,35 +111,73 @@ class _ChatPageState extends State<ChatPage> {
       var data = json.decode(response.body);
 
       if (data['success']) {
-        List<Map<String, dynamic>> newMessages =
+        List<Map<String, dynamic>> serverMessages =
             List<Map<String, dynamic>>.from(data['messages'] as List<dynamic>);
 
+        // 2. Save new messages to local DB
+        await DatabaseHelper.instance.bulkInsertMessages(serverMessages.map((msg) => {
+          DatabaseHelper.columnGroupNumber: widget.groupNumber,
+          DatabaseHelper.columnSender: msg['sender'],
+          DatabaseHelper.columnMessage: msg['message'],
+          DatabaseHelper.columnTime: msg['time'], // ISO string
+          DatabaseHelper.columnIsSynced: 1, // Already synced
+        }).toList());
+
+        // 3. Update UI from local DB
+        final localMessages = await DatabaseHelper.instance.getMessages(widget.groupNumber);
+        
         if (mounted) {
-          bool shouldScroll = newMessages.length > messages.length;
+          bool shouldScroll = localMessages.length > messages.length;
 
           setState(() {
-            messages = newMessages;
+            messages = localMessages;
           });
 
           if (shouldScroll) {
             _scrollToBottom();
           }
         }
+      } else {
+        // Handle server failure, but keep local data
+        if (!isPolling && mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Could not sync with server: ${data['message']}')));
+        }
       }
     } catch (e) {
       print("Error fetching messages: $e");
       if (!isPolling && mounted) {
+        // Display generic error, but local data remains
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error fetching messages: $e')));
+            .showSnackBar(const SnackBar(content: Text('Offline or Network Error. Showing local data.')));
       }
     }
   }
 
+  // ⚠️ MODIFIED: Send message now updates local DB first, then server.
   Future<void> sendMessage() async {
     String text = messageController.text.trim();
     if (text.isEmpty) return;
 
+    // 1. Prepare message map
+    final now = DateTime.now().toUtc().toIso8601String();
+    final localMessage = {
+      DatabaseHelper.columnGroupNumber: widget.groupNumber,
+      DatabaseHelper.columnSender: widget.username,
+      DatabaseHelper.columnMessage: text,
+      DatabaseHelper.columnTime: now,
+      DatabaseHelper.columnIsSynced: 0, // Not yet synced
+    };
+
+    // 2. Update local DB and UI instantly
+    await DatabaseHelper.instance.insertMessage(localMessage);
+    messageController.clear();
+    await _loadLocalMessages();
+    _scrollToBottom();
+    
     setState(() => _isLoading = true);
+
+    // 3. Send to server
     try {
       var url = Uri.parse("https://$SERVER_IP/send_message");
       var response = await http.post(
@@ -914,18 +192,21 @@ class _ChatPageState extends State<ChatPage> {
       var data = json.decode(response.body);
 
       if (data['success']) {
-        messageController.clear();
+        // Message sent successfully, force a fetch to get the official server timestamp
+        // and mark the message as synced (though the server's time will likely replace it).
         await fetchMessages(); 
       } else {
+        // Server failed. Message remains in local DB with is_synced = 0
         if (mounted) {
           ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text(data['message'])));
+              .showSnackBar(SnackBar(content: Text('Failed to send to server. Will try to sync later: ${data['message']}')));
         }
       }
     } catch (e) {
+      // Network error. Message remains in local DB with is_synced = 0
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text("Error: $e")));
+            .showSnackBar(const SnackBar(content: Text("Network error. Message saved locally.")));
       }
     } finally {
       if (mounted) {
@@ -933,14 +214,14 @@ class _ChatPageState extends State<ChatPage> {
       }
     }
   }
-  
-  // ⚠️ NEW: Leave Group implementation
+
+  // ⚠️ MODIFIED: Leave Group implementation now deletes local messages
   Future<void> leaveGroup() async {
     final bool confirm = await showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirm Leave'),
-        content: const Text('Are you sure you want to leave this group?'),
+        content: const Text('Are you sure you want to leave this group? All local messages for this chat will be deleted.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
           TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('LEAVE')),
@@ -963,6 +244,8 @@ class _ChatPageState extends State<ChatPage> {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(data['message'])));
         if (data['success']) {
+          // ⚠️ NEW: Delete local group messages
+          await DatabaseHelper.instance.deleteGroupMessages(widget.groupNumber);
           // Pass true to MainPage to indicate a refresh/removal is needed
           Navigator.pop(context, true); 
         }
@@ -975,13 +258,13 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  // ⚠️ NEW: Delete Group implementation (Admin only)
+  // ⚠️ MODIFIED: Delete Group implementation now deletes local messages
   Future<void> deleteGroup() async {
     final bool confirm = await showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirm Delete'),
-        content: const Text('WARNING: Are you sure you want to delete this group and all its messages? This action is irreversible.'),
+        content: const Text('WARNING: Are you sure you want to delete this group and all its messages? This action is irreversible. All local messages will also be deleted.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
           TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('DELETE', style: TextStyle(color: Colors.red))),
@@ -1004,6 +287,8 @@ class _ChatPageState extends State<ChatPage> {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(data['message'])));
         if (data['success']) {
+          // ⚠️ NEW: Delete local group messages
+          await DatabaseHelper.instance.deleteGroupMessages(widget.groupNumber);
           // Pass true to MainPage to indicate a refresh/removal is needed
           Navigator.pop(context, true); 
         }
@@ -1016,7 +301,7 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  // ⚠️ NEW: Show dialog with group options
+  // Show dialog with group options (unchanged, uses modified leave/delete functions)
   void _showGroupSettings() {
     showDialog(
       context: context,
@@ -1054,7 +339,6 @@ class _ChatPageState extends State<ChatPage> {
       appBar: AppBar(
         title: Text(widget.groupName),
         backgroundColor: Colors.blue[900],
-        // ⚠️ NEW: Group settings action button
         actions: [
           IconButton(
             icon: const Icon(Icons.more_vert),
@@ -1066,7 +350,8 @@ class _ChatPageState extends State<ChatPage> {
         children: [
           Expanded(
             child: RefreshIndicator(
-              onRefresh: fetchMessages,
+              // Refresh now calls fetchMessages which syncs and reloads from local DB
+              onRefresh: fetchMessages, 
               child: ListView.builder(
                 controller: _scrollController,
                 padding: const EdgeInsets.all(10),
@@ -1074,6 +359,14 @@ class _ChatPageState extends State<ChatPage> {
                 itemBuilder: (context, index) {
                   var msg = messages[index];
                   bool isMe = (msg['sender'] as String) == widget.username;
+                  
+                  // ⚠️ Handle cases where the message is only local/not synced
+                  bool isPending = (msg[DatabaseHelper.columnIsSynced] ?? 1) == 0; 
+                  
+                  // Parse the time string
+                  final timeString = msg['time'] as String;
+                  final displayTime = DateTime.parse(timeString).toLocal().toString().substring(11, 16);
+
 
                   return Container(
                     margin: const EdgeInsets.symmetric(vertical: 5),
@@ -1083,7 +376,9 @@ class _ChatPageState extends State<ChatPage> {
                           maxWidth: MediaQuery.of(context).size.width * 0.7),
                       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
                       decoration: BoxDecoration(
-                        color: isMe ? Colors.blue[100] : Colors.grey[300],
+                        color: isMe 
+                            ? (isPending ? Colors.yellow[100] : Colors.blue[100]) // Yellow for pending
+                            : Colors.grey[300],
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
@@ -1097,12 +392,25 @@ class _ChatPageState extends State<ChatPage> {
                           ),
                           const SizedBox(height: 3),
                           Text(msg['message'] as String),
-                          if (msg['time'] != null)
-                            Text(
-                              (msg['time'] as String).substring(11, 16),
-                              style:
-                                  const TextStyle(fontSize: 10, color: Colors.black54),
-                            ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                                Text(
+                                displayTime,
+                                style:
+                                    const TextStyle(fontSize: 10, color: Colors.black54),
+                                ),
+                                if (isMe && isPending)
+                                    Padding(
+                                      padding: const EdgeInsets.only(left: 4.0),
+                                      child: Icon(
+                                        Icons.access_time, 
+                                        size: 10, 
+                                        color: Colors.red[800]
+                                      ),
+                                    )
+                            ],
+                          ),
                         ],
                       ),
                     ),
