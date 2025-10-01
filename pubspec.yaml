@@ -1,28 +1,35 @@
-name: Test
-description: A simple Flutter app with login and home page
-publish_to: "none" # since this is for personal use
+name: one_chat
+description: A Flutter chat application with login, signup, group chat, and profile features.
 
 version: 1.0.0+1
 
 environment:
-  sdk: ">=3.0.0 <4.0.0"
+  sdk: ">=3.3.0 <4.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
-  webview_flutter: ^4.0.7
-  cupertino_icons: ^1.0.8
-  flutter_launcher_icons: ^0.13.1
+
+  # HTTP requests
+  http: ^1.1.0
+
+  # Local storage for token and username
+  shared_preferences: ^2.1.1
+
+  # State management and utilities
+  provider: ^6.1.7
+  flutter_svg: ^2.0.7
+
+  # UI dependencies
+  cupertino_icons: ^1.0.5
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^2.0.0
 
-flutter_icons:   # ✅ config block moved out of dependencies
-  android: true
-  ios: false
-  image_path: "assets/logo.png"
-
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/logo.png
