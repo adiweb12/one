@@ -5,8 +5,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:sqflite/sqflite.dart'; 
-import 'database_helper.dart'; // Assuming this file is in the same directory
+import 'database_helper.dart'; 
 
 // -------------------- CONSTANTS --------------------
 // NOTE: Use the provided server link
@@ -16,7 +15,6 @@ const FlutterSecureStorage storage = FlutterSecureStorage();
 // -------------------- MAIN --------------------
 
 void main() async {
-  // Ensure Flutter is initialized before accessing platform services like sqflite
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
@@ -61,7 +59,6 @@ class AuthChecker extends StatelessWidget {
           );
         }
         
-        // If logged in, go to MainPage, else go to LoginPage
         if (snapshot.data == true) {
           return const MainPage();
         } else {
@@ -104,7 +101,6 @@ class _LoginPageState extends State<LoginPage> {
         await storage.write(key: 'token', value: data['token']);
         await storage.write(key: 'username', value: username);
         if (mounted) {
-          // Use pushReplacement to clear the login history
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const MainPage()),
@@ -130,7 +126,7 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Login')),
-      // ⚠️ FIX: Replace Center with Padding and wrap the Center widget
+      // CORRECTED: Use Padding widget to apply padding
       body: Padding( 
         padding: const EdgeInsets.all(16.0),
         child: Center( 
@@ -211,7 +207,7 @@ class _SignUpPageState extends State<SignUpPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Sign Up')),
-      // ⚠️ FIX: Replace Center with Padding and wrap the Center widget
+      // CORRECTED: Use Padding widget to apply padding
       body: Padding( 
         padding: const EdgeInsets.all(16.0),
         child: Center(
@@ -233,7 +229,7 @@ class _SignUpPageState extends State<SignUpPage> {
   }
 }
 
-// -------------------- 🏠 MAIN PAGE --------------------
+// -------------------- 🏠 MAIN PAGE (Offline Capable) --------------------
 
 class MainPage extends StatefulWidget {
   const MainPage({Key? key}) : super(key: key);
@@ -250,11 +246,33 @@ class _MainPageState extends State<MainPage> {
   @override
   void initState() {
     super.initState();
-    _loadProfile();
+    _loadLocalData(); // Load local data first for instant display
+    _syncProfileAndGroups(); // Then, sync with server
+  }
+  
+  // New method: Load profile and groups from local database
+  Future<void> _loadLocalData() async {
+    final username = await storage.read(key: 'username');
+    if (username == null) return;
+
+    final localProfile = await DatabaseHelper.instance.getProfile(username);
+    final localGroups = await DatabaseHelper.instance.getGroups();
+
+    if (mounted) {
+      setState(() {
+        _username = username;
+        // If profile exists locally, use the stored name
+        _name = localProfile?['name'] ?? username; 
+        _groups = localGroups;
+        _isLoading = false; // Show local data instantly
+      });
+    }
   }
 
-  Future<void> _loadProfile() async {
-    setState(() => _isLoading = true);
+  // Modified: Syncs profile and groups with the server
+  Future<void> _syncProfileAndGroups({bool forceLoading = false}) async {
+    if (forceLoading) setState(() => _isLoading = true);
+    
     final token = await storage.read(key: 'token');
     final username = await storage.read(key: 'username');
 
@@ -278,11 +296,15 @@ class _MainPageState extends State<MainPage> {
       
       if (data['success']) {
         if (mounted) {
-          setState(() {
-            _username = data['username'];
-            _name = data['name'];
-            _groups = List<Map<String, dynamic>>.from(data['groups']);
-          });
+          // 1. Save profile to local DB
+          await DatabaseHelper.instance.saveProfile(data['username'], data['name']);
+
+          // 2. Save groups to local DB
+          List<Map<String, dynamic>> serverGroups = List<Map<String, dynamic>>.from(data['groups']);
+          await DatabaseHelper.instance.saveGroups(serverGroups);
+          
+          // 3. Reload UI from local DB (for consistency)
+          await _loadLocalData();
         }
       } else {
         // Token expired or invalid, log user out
@@ -295,11 +317,11 @@ class _MainPageState extends State<MainPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Network error loading profile. Showing cached data if available.')));
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Offline. Showing cached groups.')));
       }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted && forceLoading) setState(() => _isLoading = false);
     }
   }
 
@@ -318,7 +340,6 @@ class _MainPageState extends State<MainPage> {
 
     await storage.deleteAll();
     if (mounted) {
-      // Navigate to Login and clear all previous routes
       Navigator.pushAndRemoveUntil(
         context, 
         MaterialPageRoute(builder: (context) => const LoginPage()), 
@@ -344,7 +365,7 @@ class _MainPageState extends State<MainPage> {
     );
 
     if (shouldRefresh == true) {
-      _loadProfile();
+      _syncProfileAndGroups(forceLoading: true);
     }
   }
 
@@ -362,17 +383,17 @@ class _MainPageState extends State<MainPage> {
                 context, 
                 MaterialPageRoute(builder: (context) => ProfilePage(username: _username, name: _name)),
               );
-              _loadProfile();
+              _syncProfileAndGroups(forceLoading: true);
             },
           ),
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadProfile),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: () => _syncProfileAndGroups(forceLoading: true)),
           IconButton(icon: const Icon(Icons.logout), onPressed: _logout),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-              onRefresh: _loadProfile,
+              onRefresh: () => _syncProfileAndGroups(forceLoading: true),
               child: ListView.builder(
                 itemCount: _groups.length,
                 itemBuilder: (context, index) {
@@ -393,7 +414,7 @@ class _MainPageState extends State<MainPage> {
             heroTag: "createGroup",
             onPressed: () async {
               await Navigator.push(context, MaterialPageRoute(builder: (context) => const CreatePage()));
-              _loadProfile();
+              _syncProfileAndGroups(forceLoading: true);
             },
             label: const Text('Create'),
             icon: const Icon(Icons.add),
@@ -403,7 +424,7 @@ class _MainPageState extends State<MainPage> {
             heroTag: "joinGroup",
             onPressed: () async {
               await Navigator.push(context, MaterialPageRoute(builder: (context) => const JoinPage()));
-              _loadProfile();
+              _syncProfileAndGroups(forceLoading: true);
             },
             label: const Text('Join'),
             icon: const Icon(Icons.group_add),
@@ -474,7 +495,7 @@ class _CreatePageState extends State<CreatePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Create Group')),
-      // ⚠️ FIX: Replace Center with Padding and wrap the Center widget
+      // CORRECTED: Use Padding widget to apply padding
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Center(
@@ -549,7 +570,7 @@ class _JoinPageState extends State<JoinPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Join Group')),
-      // ⚠️ FIX: Replace Center with Padding and wrap the Center widget
+      // CORRECTED: Use Padding widget to apply padding
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Center(
@@ -617,6 +638,8 @@ class _ProfilePageState extends State<ProfilePage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(data['message'])));
         if (data['success']) {
+          // Update local profile data immediately
+          await DatabaseHelper.instance.saveProfile(widget.username, newName);
           Navigator.pop(context);
         }
       }
@@ -634,8 +657,6 @@ class _ProfilePageState extends State<ProfilePage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
       body: Padding(
-        // ⚠️ FIX: The original code had a Padding error here, but it was just a style error.
-        // It should be Padding around a Column/ListView, not Center(padding:...)
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -658,7 +679,7 @@ class _ProfilePageState extends State<ProfilePage> {
 }
 
 
-// -------------------- CHAT PAGE --------------------
+// -------------------- CHAT PAGE (Outbox/Sync Logic) --------------------
 class ChatPage extends StatefulWidget {
   final String groupName;
   final String username;
@@ -686,22 +707,21 @@ class _ChatPageState extends State<ChatPage> {
   Timer? _timer;
   final ScrollController _scrollController = ScrollController();
 
-  // Store the last successfully fetched timestamp to prevent fetching old data
+  // Store the last successfully fetched timestamp for incremental fetch (INBOX)
   DateTime? _lastSyncedTime; 
 
   @override
   void initState() {
     super.initState();
-    // 1. Load messages from local database immediately
     _loadLocalMessages().then((_) {
-      // 2. Then, fetch new messages from the server
-      fetchMessages().then((_) {
+      // 2. Then, run the full sync: outbox (send pending) + inbox (fetch new)
+      _syncMessages().then((_) { 
         _scrollToBottom();
       });
     });
     
     // Set up timer for polling every 3 seconds
-    _timer = Timer.periodic(const Duration(seconds: 3), (Timer t) => fetchMessages(isPolling: true));
+    _timer = Timer.periodic(const Duration(seconds: 3), (Timer t) => _syncMessages(isPolling: true));
   }
 
   @override
@@ -720,7 +740,6 @@ class _ChatPageState extends State<ChatPage> {
     });
   }
 
-  // Loads messages from the local SQLite database
   Future<void> _loadLocalMessages() async {
     final localMessages = await DatabaseHelper.instance.getMessages(widget.groupNumber);
     if (mounted) {
@@ -729,23 +748,77 @@ class _ChatPageState extends State<ChatPage> {
       });
     }
   }
+  
+  // --- OUTBOX PROCESSING (Local -> Server) ---
+  Future<void> _processOutbox({bool isPolling = false}) async {
+      // Find all pending messages (is_synced = 0)
+      final pendingMessages = await DatabaseHelper.instance.getPendingMessages(widget.groupNumber);
+      
+      if (pendingMessages.isEmpty) return;
+      
+      if (!isPolling) {
+          if (mounted) setState(() => _isLoading = true);
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Attempting to sync ${pendingMessages.length} pending messages...')));
+      }
 
-  // Synchronizes local and server messages
-  Future<void> fetchMessages({bool isPolling = false}) async {
-    
+      try {
+          final url = Uri.parse("https://$SERVER_IP/send_message");
+          final db = await DatabaseHelper.instance.database;
+
+          // Use a transaction for atomic updates to local DB
+          await db.transaction((txn) async {
+              for (var msg in pendingMessages) {
+                  final response = await http.post(
+                      url,
+                      headers: {"Content-Type": "application/json"},
+                      body: json.encode({
+                          "groupNumber": widget.groupNumber,
+                          "message": msg[DatabaseHelper.columnMessage],
+                          "token": widget.token,
+                      }),
+                  );
+                  final data = json.decode(response.body);
+
+                  if (data['success']) {
+                      // Update the local database to mark it as synced (1) and use server time
+                      await txn.update(
+                          DatabaseHelper.tableName,
+                          {
+                            DatabaseHelper.columnIsSynced: 1, 
+                            DatabaseHelper.columnTime: data['time'] // Use server time
+                          },
+                          where: '${DatabaseHelper.columnId} = ?',
+                          whereArgs: [msg[DatabaseHelper.columnId]],
+                      );
+                  } else {
+                      print('Outbox sync failed for message ID ${msg[DatabaseHelper.columnId]}: ${data['message']}');
+                  }
+              }
+          });
+          
+          await _loadLocalMessages(); // Refresh UI after outbox is processed
+
+      } catch (e) {
+          print("Outbox sync network error: $e");
+      } finally {
+          if (!isPolling && mounted) setState(() => _isLoading = false);
+      }
+  }
+
+
+  // --- INBOX PROCESSING (Server -> Local) ---
+  Future<void> _syncIncomingMessages({bool isPolling = false}) async {
     String? lastTimeISO;
     if (_lastSyncedTime != null) {
-      // Convert the last successful sync time to ISO 8601 UTC string
       lastTimeISO = _lastSyncedTime!.toUtc().toIso8601String();
     }
     
     try {
-      // 1. Fetch messages from the server
       var url = Uri.parse("https://$SERVER_IP/get_messages/${widget.groupNumber}");
       var response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
-        // Pass the latest sync time to the server for incremental sync
         body: json.encode({"token": widget.token, "last_synced_time": lastTimeISO}),
       );
       var data = json.decode(response.body);
@@ -762,17 +835,16 @@ class _ChatPageState extends State<ChatPage> {
                
            _lastSyncedTime = maxTime;
 
-
-          // 3. Save new messages to local DB
+          // Save new messages to local DB
           await DatabaseHelper.instance.bulkInsertMessages(serverMessages.map((msg) => {
             DatabaseHelper.columnGroupNumber: widget.groupNumber,
             DatabaseHelper.columnSender: msg['sender'],
             DatabaseHelper.columnMessage: msg['message'],
-            DatabaseHelper.columnTime: msg['time'], // ISO string from server
-            DatabaseHelper.columnIsSynced: 1, // Synced
+            DatabaseHelper.columnTime: msg['time'],
+            DatabaseHelper.columnIsSynced: 1, 
           }).toList());
 
-          // 4. Update UI from local DB
+          // Update UI from local DB
           final localMessages = await DatabaseHelper.instance.getMessages(widget.groupNumber);
           
           if (mounted) {
@@ -802,19 +874,25 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  // Send message now updates local DB first, then server.
+  // Master Sync Method
+  Future<void> _syncMessages({bool isPolling = false}) async {
+    await _processOutbox(isPolling: isPolling);
+    await _syncIncomingMessages(isPolling: isPolling);
+  }
+
+  // Send message now saves locally, updates UI, then attempts sync
   Future<void> sendMessage() async {
     String text = messageController.text.trim();
     if (text.isEmpty) return;
 
-    // 1. Prepare message map with local time
+    // 1. Prepare message map with local time and set is_synced to 0
     final now = DateTime.now().toUtc().toIso8601String();
     final localMessage = {
       DatabaseHelper.columnGroupNumber: widget.groupNumber,
       DatabaseHelper.columnSender: widget.username,
       DatabaseHelper.columnMessage: text,
       DatabaseHelper.columnTime: now,
-      DatabaseHelper.columnIsSynced: 0, // Not yet synced (Pending)
+      DatabaseHelper.columnIsSynced: 0, // PENDING
     };
 
     // 2. Update local DB and UI instantly
@@ -823,53 +901,16 @@ class _ChatPageState extends State<ChatPage> {
     await _loadLocalMessages();
     _scrollToBottom();
     
-    setState(() => _isLoading = true);
-
-    // 3. Send to server
-    try {
-      var url = Uri.parse("https://$SERVER_IP/send_message");
-      var response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: json.encode({
-          "groupNumber": widget.groupNumber,
-          "message": text,
-          "token": widget.token,
-        }),
-      );
-      var data = json.decode(response.body);
-
-      if (data['success']) {
-        // Message sent successfully, force a fetch to get the official server timestamp
-        // and mark the message as synced (this avoids having to manually update the local message).
-        await fetchMessages(); 
-      } else {
-        // Server failed. Message remains in local DB with is_synced = 0
-        if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text('Server failed. Saved locally: ${data['message']}')));
-        }
-      }
-    } catch (e) {
-      // Network error. Message remains in local DB with is_synced = 0
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text("Network error. Message saved locally (pending).")));
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
+    // 3. Attempt to sync immediately
+    await _syncMessages(); 
   }
 
-  // Leave Group implementation now deletes local messages
   Future<void> leaveGroup() async {
     final bool confirm = await showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirm Leave'),
-        content: const Text('Are you sure you want to leave this group? All local messages for this chat will be deleted.'),
+        content: const Text('Are you sure you want to leave this group? All local data for this chat will be deleted.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
           TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('LEAVE')),
@@ -892,9 +933,9 @@ class _ChatPageState extends State<ChatPage> {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(data['message'])));
         if (data['success']) {
-          // Delete local group messages
+          // Delete ALL local data associated with this group
           await DatabaseHelper.instance.deleteGroupMessages(widget.groupNumber);
-          // Pass true to MainPage to indicate a refresh/removal is needed
+          await DatabaseHelper.instance.deleteGroupMetadata(widget.groupNumber);
           Navigator.pop(context, true); 
         }
       }
@@ -906,13 +947,12 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  // Delete Group implementation now deletes local messages
   Future<void> deleteGroup() async {
     final bool confirm = await showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirm Delete'),
-        content: const Text('WARNING: Are you sure you want to delete this group and all its messages? This action is irreversible. All local messages will also be deleted.'),
+        content: const Text('WARNING: Are you sure you want to delete this group and all its messages? This action is irreversible. All local data will also be deleted.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
           TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('DELETE', style: TextStyle(color: Colors.red))),
@@ -935,9 +975,9 @@ class _ChatPageState extends State<ChatPage> {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(data['message'])));
         if (data['success']) {
-          // Delete local group messages
+          // Delete ALL local data associated with this group
           await DatabaseHelper.instance.deleteGroupMessages(widget.groupNumber);
-          // Pass true to MainPage to indicate a refresh/removal is needed
+          await DatabaseHelper.instance.deleteGroupMetadata(widget.groupNumber);
           Navigator.pop(context, true); 
         }
       }
@@ -997,7 +1037,7 @@ class _ChatPageState extends State<ChatPage> {
         children: [
           Expanded(
             child: RefreshIndicator(
-              onRefresh: fetchMessages, 
+              onRefresh: _syncMessages, 
               child: ListView.builder(
                 controller: _scrollController,
                 padding: const EdgeInsets.all(10),
@@ -1027,7 +1067,7 @@ class _ChatPageState extends State<ChatPage> {
                       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
                       decoration: BoxDecoration(
                         color: isMe 
-                            ? (isPending ? Colors.yellow[100] : Colors.blue[100]) // Yellow for pending
+                            ? (isPending ? Colors.yellow[100] : Colors.blue[100])
                             : Colors.grey[300],
                         borderRadius: BorderRadius.circular(12),
                       ),
