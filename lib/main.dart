@@ -336,6 +336,7 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPageState extends State<MainPage> {
+  // ⚠️ MODIFIED: Store all group data, including is_creator
   List<Map<String, dynamic>> groups = [];
 
   @override
@@ -357,9 +358,10 @@ class _MainPageState extends State<MainPage> {
         List userGroups = data['groups'] ?? [];
         if (mounted) {
           setState(() {
+            // ⚠️ MODIFIED: Map group data to include all fields
             groups = userGroups
                 .map<Map<String, dynamic>>(
-                    (g) => {"name": g['name'], "number": g['number']})
+                    (g) => {"name": g['name'], "number": g['number'], "is_creator": g['is_creator'] ?? false})
                 .toList();
           });
         }
@@ -431,12 +433,19 @@ class _MainPageState extends State<MainPage> {
                 itemCount: groups.length,
                 itemBuilder: (context, index) {
                   var group = groups[index];
+                  // ⚠️ MODIFIED: Show (Admin) next to group name if is_creator is true
+                  String groupTitle = group['name'] as String;
+                  if (group['is_creator'] == true) {
+                    groupTitle += " (Admin)";
+                  }
+
                   return Card(
                     child: ListTile(
-                      title: Text(group['name'] as String),
+                      title: Text(groupTitle),
                       subtitle: Text("Group Number: ${group['number']}"),
-                      onTap: () {
-                        Navigator.push(
+                      onTap: () async {
+                        // FIX 6: Use await and check for result after chat page closes (needed for group deletion/leaving)
+                        final result = await Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => ChatPage(
@@ -444,9 +453,14 @@ class _MainPageState extends State<MainPage> {
                               username: widget.username,
                               groupNumber: group['number'] as String,
                               token: widget.token,
+                              isCreator: group['is_creator'] as bool, // ⚠️ NEW
                             ),
                           ),
                         );
+                        // If the chat page returns true (meaning group was left/deleted), refresh list
+                        if (result == true) {
+                          refreshGroups();
+                        }
                       },
                     ),
                   );
@@ -797,6 +811,8 @@ class ChatPage extends StatefulWidget {
   final String username;
   final String groupNumber;
   final String token;
+  // ⚠️ NEW: Pass creator status
+  final bool isCreator; 
 
   const ChatPage({
     Key? key,
@@ -804,6 +820,7 @@ class ChatPage extends StatefulWidget {
     required this.username,
     required this.groupNumber,
     required this.token,
+    required this.isCreator, // ⚠️ NEW
   }) : super(key: key);
 
   @override
@@ -916,6 +933,120 @@ class _ChatPageState extends State<ChatPage> {
       }
     }
   }
+  
+  // ⚠️ NEW: Leave Group implementation
+  Future<void> leaveGroup() async {
+    final bool confirm = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Leave'),
+        content: const Text('Are you sure you want to leave this group?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('LEAVE')),
+        ],
+      ),
+    ) ?? false;
+
+    if (!confirm) return;
+
+    try {
+      var url = Uri.parse("https://$SERVER_IP/leave_group");
+      var response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: json.encode({"token": widget.token, "groupNumber": widget.groupNumber}),
+      );
+      var data = json.decode(response.body);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(data['message'])));
+        if (data['success']) {
+          // Pass true to MainPage to indicate a refresh/removal is needed
+          Navigator.pop(context, true); 
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error leaving group: $e')));
+      }
+    }
+  }
+
+  // ⚠️ NEW: Delete Group implementation (Admin only)
+  Future<void> deleteGroup() async {
+    final bool confirm = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Delete'),
+        content: const Text('WARNING: Are you sure you want to delete this group and all its messages? This action is irreversible.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('DELETE', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    ) ?? false;
+
+    if (!confirm) return;
+
+    try {
+      var url = Uri.parse("https://$SERVER_IP/delete_group");
+      var response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: json.encode({"token": widget.token, "groupNumber": widget.groupNumber}),
+      );
+      var data = json.decode(response.body);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(data['message'])));
+        if (data['success']) {
+          // Pass true to MainPage to indicate a refresh/removal is needed
+          Navigator.pop(context, true); 
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error deleting group: $e')));
+      }
+    }
+  }
+
+  // ⚠️ NEW: Show dialog with group options
+  void _showGroupSettings() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Group Settings'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.exit_to_app),
+              title: const Text('Leave Group'),
+              onTap: () {
+                Navigator.pop(context); // Close dialog
+                leaveGroup();
+              },
+            ),
+            if (widget.isCreator) 
+              ListTile(
+                leading: const Icon(Icons.delete_forever, color: Colors.red),
+                title: const Text('Delete Group (Admin)', style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(context); // Close dialog
+                  deleteGroup();
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -923,6 +1054,13 @@ class _ChatPageState extends State<ChatPage> {
       appBar: AppBar(
         title: Text(widget.groupName),
         backgroundColor: Colors.blue[900],
+        // ⚠️ NEW: Group settings action button
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.more_vert),
+            onPressed: _showGroupSettings,
+          ),
+        ],
       ),
       body: Column(
         children: [
