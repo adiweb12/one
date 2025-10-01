@@ -35,7 +35,39 @@ class MyApp extends StatelessWidget {
           foregroundColor: Colors.white,
         ),
       ),
-      home: const LoginPage(), // Start with the login page
+      home: const AuthChecker(), // Start with AuthChecker for permanent login
+    );
+  }
+}
+
+// -------------------- AUTH CHECKER (Permanent Login) --------------------
+
+class AuthChecker extends StatelessWidget {
+  const AuthChecker({super.key});
+
+  Future<bool> _checkLoginStatus() async {
+    final token = await storage.read(key: 'token');
+    return token != null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: _checkLoginStatus(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        
+        // If logged in, go to MainPage, else go to LoginPage
+        if (snapshot.data == true) {
+          return const MainPage();
+        } else {
+          return const LoginPage();
+        }
+      },
     );
   }
 }
@@ -72,6 +104,7 @@ class _LoginPageState extends State<LoginPage> {
         await storage.write(key: 'token', value: data['token']);
         await storage.write(key: 'username', value: username);
         if (mounted) {
+          // Use pushReplacement to clear the login history
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const MainPage()),
@@ -97,24 +130,27 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Login')),
-      body: Padding(
+      // ⚠️ FIX: Replace Center with Padding and wrap the Center widget
+      body: Padding( 
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextField(controller: _usernameController, decoration: const InputDecoration(labelText: 'Username')),
-            TextField(controller: _passwordController, decoration: const InputDecoration(labelText: 'Password'), obscureText: true),
-            const SizedBox(height: 20),
-            _isLoading
-                ? const CircularProgressIndicator()
-                : ElevatedButton(onPressed: _login, child: const Text('Login')),
-            TextButton(
-              onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const SignUpPage()));
-              },
-              child: const Text('Need an account? Sign Up'),
-            ),
-          ],
+        child: Center( 
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TextField(controller: _usernameController, decoration: const InputDecoration(labelText: 'Username')),
+              TextField(controller: _passwordController, decoration: const InputDecoration(labelText: 'Password'), obscureText: true),
+              const SizedBox(height: 20),
+              _isLoading
+                  ? const CircularProgressIndicator()
+                  : ElevatedButton(onPressed: _login, child: const Text('Login')),
+              TextButton(
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const SignUpPage()));
+                },
+                child: const Text('Need an account? Sign Up'),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -175,19 +211,22 @@ class _SignUpPageState extends State<SignUpPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Sign Up')),
-      body: Padding(
+      // ⚠️ FIX: Replace Center with Padding and wrap the Center widget
+      body: Padding( 
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextField(controller: _usernameController, decoration: const InputDecoration(labelText: 'Username')),
-            TextField(controller: _nameController, decoration: const InputDecoration(labelText: 'Name/Alias')),
-            TextField(controller: _passwordController, decoration: const InputDecoration(labelText: 'Password (min 6 chars)'), obscureText: true),
-            const SizedBox(height: 20),
-            _isLoading
-                ? const CircularProgressIndicator()
-                : ElevatedButton(onPressed: _signUp, child: const Text('Sign Up')),
-          ],
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TextField(controller: _usernameController, decoration: const InputDecoration(labelText: 'Username')),
+              TextField(controller: _nameController, decoration: const InputDecoration(labelText: 'Name/Alias')),
+              TextField(controller: _passwordController, decoration: const InputDecoration(labelText: 'Password (min 6 chars)'), obscureText: true),
+              const SizedBox(height: 20),
+              _isLoading
+                  ? const CircularProgressIndicator()
+                  : ElevatedButton(onPressed: _signUp, child: const Text('Sign Up')),
+            ],
+          ),
         ),
       ),
     );
@@ -221,6 +260,7 @@ class _MainPageState extends State<MainPage> {
 
     if (token == null || username == null) {
       if (mounted) {
+        // If token is somehow lost here, redirect to login
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginPage()));
       }
       return;
@@ -245,7 +285,7 @@ class _MainPageState extends State<MainPage> {
           });
         }
       } else {
-        // Token expired or invalid
+        // Token expired or invalid, log user out
         await storage.deleteAll();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -256,7 +296,7 @@ class _MainPageState extends State<MainPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Network error loading profile: $e')));
+            SnackBar(content: Text('Network error loading profile. Showing cached data if available.')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -278,7 +318,12 @@ class _MainPageState extends State<MainPage> {
 
     await storage.deleteAll();
     if (mounted) {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginPage()));
+      // Navigate to Login and clear all previous routes
+      Navigator.pushAndRemoveUntil(
+        context, 
+        MaterialPageRoute(builder: (context) => const LoginPage()), 
+        (Route<dynamic> route) => false
+      );
     }
   }
   
@@ -429,18 +474,21 @@ class _CreatePageState extends State<CreatePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Create Group')),
+      // ⚠️ FIX: Replace Center with Padding and wrap the Center widget
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextField(controller: _nameController, decoration: const InputDecoration(labelText: 'Group Name')),
-            TextField(controller: _numberController, decoration: const InputDecoration(labelText: 'Unique Group ID (e.g., G12345)')),
-            const SizedBox(height: 20),
-            _isLoading
-                ? const CircularProgressIndicator()
-                : ElevatedButton(onPressed: _createGroup, child: const Text('Create Group')),
-          ],
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TextField(controller: _nameController, decoration: const InputDecoration(labelText: 'Group Name')),
+              TextField(controller: _numberController, decoration: const InputDecoration(labelText: 'Unique Group ID (e.g., G12345)')),
+              const SizedBox(height: 20),
+              _isLoading
+                  ? const CircularProgressIndicator()
+                  : ElevatedButton(onPressed: _createGroup, child: const Text('Create Group')),
+            ],
+          ),
         ),
       ),
     );
@@ -501,17 +549,20 @@ class _JoinPageState extends State<JoinPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Join Group')),
+      // ⚠️ FIX: Replace Center with Padding and wrap the Center widget
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextField(controller: _numberController, decoration: const InputDecoration(labelText: 'Group ID to Join')),
-            const SizedBox(height: 20),
-            _isLoading
-                ? const CircularProgressIndicator()
-                : ElevatedButton(onPressed: _joinGroup, child: const Text('Join Group')),
-          ],
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TextField(controller: _numberController, decoration: const InputDecoration(labelText: 'Group ID to Join')),
+              const SizedBox(height: 20),
+              _isLoading
+                  ? const CircularProgressIndicator()
+                  : ElevatedButton(onPressed: _joinGroup, child: const Text('Join Group')),
+            ],
+          ),
         ),
       ),
     );
@@ -583,6 +634,8 @@ class _ProfilePageState extends State<ProfilePage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
       body: Padding(
+        // ⚠️ FIX: The original code had a Padding error here, but it was just a style error.
+        // It should be Padding around a Column/ListView, not Center(padding:...)
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -633,7 +686,7 @@ class _ChatPageState extends State<ChatPage> {
   Timer? _timer;
   final ScrollController _scrollController = ScrollController();
 
-  // ⚠️ NEW: Store the last successfully fetched timestamp to prevent fetching old data
+  // Store the last successfully fetched timestamp to prevent fetching old data
   DateTime? _lastSyncedTime; 
 
   @override
@@ -662,8 +715,6 @@ class _ChatPageState extends State<ChatPage> {
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
-        // Only scroll if we are near the bottom already, or if it's the initial load.
-        // For simplicity in this demo, we'll just jump to the end.
         _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
       }
     });
@@ -704,10 +755,6 @@ class _ChatPageState extends State<ChatPage> {
             List<Map<String, dynamic>>.from(data['messages'] as List<dynamic>);
 
         if (serverMessages.isNotEmpty) {
-           // 2. Update the local sync marker
-           // The last message in the list is the newest message fetched from the server.
-           final newestTime = serverMessages.last['time'];
-           
            // Find the maximum time from the fetched messages and update the marker
            final maxTime = serverMessages
                .map((m) => DateTime.parse(m['time']))
