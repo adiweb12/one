@@ -22,7 +22,7 @@ dependencies:
   # Dependencies for Offline Data Store (SQFLite) (Required for DatabaseHelper)
   sqflite: ^2.3.0 
   path: ^1.8.3 
-  
+  giphy_get: ^4.1.0
   # 👇 **CRUCIAL ADDITIONS FOR CHAT/MESSAGING**
   
   # For state management (e.g., managing groups, messages, and sync status)
