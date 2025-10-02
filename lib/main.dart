@@ -394,18 +394,80 @@ class _MainPageState extends State<MainPage> {
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: () => _syncProfileAndGroups(forceLoading: true),
-              child: ListView.builder(
-                itemCount: _groups.length,
-                itemBuilder: (context, index) {
-                  final group = _groups[index];
-                  return ListTile(
-                    leading: Icon(group['is_creator'] ? Icons.shield : Icons.group),
-                    title: Text(group['name']),
-                    subtitle: Text('ID: ${group['number']}'),
-                    onTap: () => _navigateToChat(group),
-                  );
-                },
-              ),
+              child: _groups.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No groups yet. Join or create one!',
+                        style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(10.0),
+                      itemCount: _groups.length,
+                      itemBuilder: (context, index) {
+                        final group = _groups[index];
+                        final isCreator = group['is_creator'] as bool;
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 5.0),
+                          child: Card(
+                            elevation: 4,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            child: InkWell( // Use InkWell for ripple effect
+                              onTap: () => _navigateToChat(group),
+                              borderRadius: BorderRadius.circular(15),
+                              child: Padding(
+                                padding: const EdgeInsets.all(15.0),
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 25,
+                                      backgroundColor: isCreator ? Colors.blue[800] : Colors.green[600],
+                                      child: Icon(
+                                        isCreator ? Icons.star : Icons.group,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 15),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            group['name'],
+                                            style: const TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.black87,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'ID: ${group['number']}',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: Colors.grey[600],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Icon(
+                                      Icons.arrow_forward_ios,
+                                      size: 16,
+                                      color: Colors.grey[400],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
             ),
       floatingActionButton: Column(
         mainAxisSize: MainAxisSize.min,
