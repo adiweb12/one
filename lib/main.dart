@@ -12,6 +12,11 @@ import 'database_helper.dart';
 const String SERVER_IP = "one-music-1dmn.onrender.com"; 
 const FlutterSecureStorage storage = FlutterSecureStorage();
 
+// -------------------- THEME COLORS --------------------
+// Define a modern, deep primary color
+final Color primaryColor = Colors.deepPurple.shade700;
+final Color secondaryColor = Colors.teal.shade400;
+
 // -------------------- MAIN --------------------
 
 void main() async {
@@ -26,14 +31,36 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'OneChat',
+      // Define a modern theme
       theme: ThemeData(
-        primarySwatch: Colors.blue,
-        appBarTheme: AppBarTheme(
-          backgroundColor: Colors.blue[900],
-          foregroundColor: Colors.white,
+        primaryColor: primaryColor,
+        colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.deepPurple).copyWith(
+          secondary: secondaryColor,
+          primary: primaryColor,
         ),
+        scaffoldBackgroundColor: Colors.grey.shade50,
+        appBarTheme: AppBarTheme(
+          backgroundColor: primaryColor,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          titleTextStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: primaryColor,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: primaryColor)),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: secondaryColor, width: 2)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        )
       ),
-      home: const AuthChecker(), // Start with AuthChecker for permanent login
+      home: const AuthChecker(),
     );
   }
 }
@@ -54,8 +81,8 @@ class AuthChecker extends StatelessWidget {
       future: _checkLoginStatus(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+          return Scaffold(
+            body: Center(child: CircularProgressIndicator(color: primaryColor)),
           );
         }
         
@@ -126,24 +153,32 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Login')),
-      // CORRECTED: Use Padding widget to apply padding
-      body: Padding( 
-        padding: const EdgeInsets.all(16.0),
-        child: Center( 
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(30.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Text(
+                'Welcome Back',
+                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: primaryColor),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 40),
               TextField(controller: _usernameController, decoration: const InputDecoration(labelText: 'Username')),
-              TextField(controller: _passwordController, decoration: const InputDecoration(labelText: 'Password'), obscureText: true),
               const SizedBox(height: 20),
+              TextField(controller: _passwordController, decoration: const InputDecoration(labelText: 'Password'), obscureText: true),
+              const SizedBox(height: 40),
               _isLoading
-                  ? const CircularProgressIndicator()
+                  ? Center(child: CircularProgressIndicator(color: primaryColor))
                   : ElevatedButton(onPressed: _login, child: const Text('Login')),
+              const SizedBox(height: 10),
               TextButton(
                 onPressed: () {
                   Navigator.push(context, MaterialPageRoute(builder: (context) => const SignUpPage()));
                 },
-                child: const Text('Need an account? Sign Up'),
+                child: Text('Need an account? Sign Up', style: TextStyle(color: secondaryColor)),
               ),
             ],
           ),
@@ -184,7 +219,7 @@ class _SignUpPageState extends State<SignUpPage> {
       if (data['success']) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Signup successful! Please log in.')));
+              const SnackBar(content: Text('Signup successful! Please log in.')));
           Navigator.pop(context);
         }
       } else {
@@ -207,19 +242,27 @@ class _SignUpPageState extends State<SignUpPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Sign Up')),
-      // CORRECTED: Use Padding widget to apply padding
-      body: Padding( 
-        padding: const EdgeInsets.all(16.0),
-        child: Center(
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(30.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Text(
+                'Create Your Account',
+                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: primaryColor),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 40),
               TextField(controller: _usernameController, decoration: const InputDecoration(labelText: 'Username')),
-              TextField(controller: _nameController, decoration: const InputDecoration(labelText: 'Name/Alias')),
-              TextField(controller: _passwordController, decoration: const InputDecoration(labelText: 'Password (min 6 chars)'), obscureText: true),
               const SizedBox(height: 20),
+              TextField(controller: _nameController, decoration: const InputDecoration(labelText: 'Name/Alias')),
+              const SizedBox(height: 20),
+              TextField(controller: _passwordController, decoration: const InputDecoration(labelText: 'Password (min 6 chars)'), obscureText: true),
+              const SizedBox(height: 40),
               _isLoading
-                  ? const CircularProgressIndicator()
+                  ? Center(child: CircularProgressIndicator(color: primaryColor))
                   : ElevatedButton(onPressed: _signUp, child: const Text('Sign Up')),
             ],
           ),
@@ -250,7 +293,6 @@ class _MainPageState extends State<MainPage> {
     _syncProfileAndGroups(); // Then, sync with server
   }
   
-  // New method: Load profile and groups from local database
   Future<void> _loadLocalData() async {
     final username = await storage.read(key: 'username');
     if (username == null) return;
@@ -261,15 +303,13 @@ class _MainPageState extends State<MainPage> {
     if (mounted) {
       setState(() {
         _username = username;
-        // If profile exists locally, use the stored name
         _name = localProfile?['name'] ?? username; 
         _groups = localGroups;
-        _isLoading = false; // Show local data instantly
+        _isLoading = false; 
       });
     }
   }
 
-  // Modified: Syncs profile and groups with the server
   Future<void> _syncProfileAndGroups({bool forceLoading = false}) async {
     if (forceLoading) setState(() => _isLoading = true);
     
@@ -278,7 +318,6 @@ class _MainPageState extends State<MainPage> {
 
     if (token == null || username == null) {
       if (mounted) {
-        // If token is somehow lost here, redirect to login
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginPage()));
       }
       return;
@@ -316,35 +355,12 @@ class _MainPageState extends State<MainPage> {
         }
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && !forceLoading) {
           ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Offline. Showing cached groups.')));
       }
     } finally {
       if (mounted && forceLoading) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _logout() async {
-    final token = await storage.read(key: 'token');
-    try {
-      final url = Uri.parse("https://$SERVER_IP/logout");
-      await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: json.encode({"token": token}),
-      );
-    } catch (e) {
-      print("Logout error (ignored): $e");
-    }
-
-    await storage.deleteAll();
-    if (mounted) {
-      Navigator.pushAndRemoveUntil(
-        context, 
-        MaterialPageRoute(builder: (context) => const LoginPage()), 
-        (Route<dynamic> route) => false
-      );
     }
   }
   
@@ -369,65 +385,96 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
+  // Moved _logout logic to ProfilePage, but keep this utility function for the profile page to call
+  Future<void> logout() async {
+    final token = await storage.read(key: 'token');
+    try {
+      final url = Uri.parse("https://$SERVER_IP/logout");
+      await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: json.encode({"token": token}),
+      );
+    } catch (e) {
+      print("Logout error (ignored): $e");
+    }
+
+    await storage.deleteAll();
+    if (mounted) {
+      Navigator.pushAndRemoveUntil(
+        context, 
+        MaterialPageRoute(builder: (context) => const LoginPage()), 
+        (Route<dynamic> route) => false
+      );
+    }
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('OneChat - Your Groups'),
         actions: [
+          IconButton(icon: const Icon(Icons.refresh), onPressed: () => _syncProfileAndGroups(forceLoading: true)),
           IconButton(
             icon: const Icon(Icons.person),
             onPressed: () async {
-              // Navigate to profile and refresh groups on return
               await Navigator.push(
                 context, 
-                MaterialPageRoute(builder: (context) => ProfilePage(username: _username, name: _name)),
+                MaterialPageRoute(builder: (context) => ProfilePage(
+                  username: _username, 
+                  name: _name,
+                  onLogout: logout, // Pass the logout function
+                )),
               );
-              _syncProfileAndGroups(forceLoading: true);
+              // Refresh groups and profile name on return
+              _syncProfileAndGroups(forceLoading: true); 
             },
           ),
-          IconButton(icon: const Icon(Icons.refresh), onPressed: () => _syncProfileAndGroups(forceLoading: true)),
-          IconButton(icon: const Icon(Icons.logout), onPressed: _logout),
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: primaryColor))
           : RefreshIndicator(
               onRefresh: () => _syncProfileAndGroups(forceLoading: true),
               child: _groups.isEmpty
                   ? Center(
                       child: Text(
                         'No groups yet. Join or create one!',
-                        style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                        style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                        textAlign: TextAlign.center,
                       ),
                     )
                   : ListView.builder(
-                      padding: const EdgeInsets.all(10.0),
+                      padding: const EdgeInsets.all(15.0),
                       itemCount: _groups.length,
                       itemBuilder: (context, index) {
                         final group = _groups[index];
                         final isCreator = group['is_creator'] as bool;
 
                         return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 5.0),
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
                           child: Card(
-                            elevation: 4,
+                            elevation: 8, // Higher elevation for modern look
+                            shadowColor: primaryColor.withOpacity(0.2),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(15),
                             ),
-                            child: InkWell( // Use InkWell for ripple effect
+                            child: InkWell( 
                               onTap: () => _navigateToChat(group),
                               borderRadius: BorderRadius.circular(15),
                               child: Padding(
-                                padding: const EdgeInsets.all(15.0),
+                                padding: const EdgeInsets.all(18.0),
                                 child: Row(
                                   children: [
                                     CircleAvatar(
-                                      radius: 25,
-                                      backgroundColor: isCreator ? Colors.blue[800] : Colors.green[600],
+                                      radius: 28,
+                                      backgroundColor: isCreator ? secondaryColor : primaryColor,
                                       child: Icon(
-                                        isCreator ? Icons.star : Icons.group,
+                                        isCreator ? Icons.star_border : Icons.group,
                                         color: Colors.white,
+                                        size: 28,
                                       ),
                                     ),
                                     const SizedBox(width: 15),
@@ -438,7 +485,7 @@ class _MainPageState extends State<MainPage> {
                                           Text(
                                             group['name'],
                                             style: const TextStyle(
-                                              fontSize: 18,
+                                              fontSize: 19,
                                               fontWeight: FontWeight.bold,
                                               color: Colors.black87,
                                             ),
@@ -455,10 +502,10 @@ class _MainPageState extends State<MainPage> {
                                         ],
                                       ),
                                     ),
-                                    Icon(
+                                    const Icon(
                                       Icons.arrow_forward_ios,
-                                      size: 16,
-                                      color: Colors.grey[400],
+                                      size: 18,
+                                      color: Colors.grey,
                                     ),
                                   ],
                                 ),
@@ -471,6 +518,7 @@ class _MainPageState extends State<MainPage> {
             ),
       floatingActionButton: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           FloatingActionButton.extended(
             heroTag: "createGroup",
@@ -478,8 +526,10 @@ class _MainPageState extends State<MainPage> {
               await Navigator.push(context, MaterialPageRoute(builder: (context) => const CreatePage()));
               _syncProfileAndGroups(forceLoading: true);
             },
-            label: const Text('Create'),
+            label: const Text('Create Group'),
             icon: const Icon(Icons.add),
+            backgroundColor: secondaryColor,
+            foregroundColor: Colors.white,
           ),
           const SizedBox(height: 10),
           FloatingActionButton.extended(
@@ -488,8 +538,10 @@ class _MainPageState extends State<MainPage> {
               await Navigator.push(context, MaterialPageRoute(builder: (context) => const JoinPage()));
               _syncProfileAndGroups(forceLoading: true);
             },
-            label: const Text('Join'),
+            label: const Text('Join Group'),
             icon: const Icon(Icons.group_add),
+            backgroundColor: primaryColor,
+            foregroundColor: Colors.white,
           ),
         ],
       ),
@@ -557,18 +609,25 @@ class _CreatePageState extends State<CreatePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Create Group')),
-      // CORRECTED: Use Padding widget to apply padding
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Center(
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(30.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Text(
+                'New Group Setup',
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: primaryColor),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 30),
               TextField(controller: _nameController, decoration: const InputDecoration(labelText: 'Group Name')),
-              TextField(controller: _numberController, decoration: const InputDecoration(labelText: 'Unique Group ID (e.g., G12345)')),
               const SizedBox(height: 20),
+              TextField(controller: _numberController, decoration: const InputDecoration(labelText: 'Unique Group ID (e.g., G12345)')),
+              const SizedBox(height: 40),
               _isLoading
-                  ? const CircularProgressIndicator()
+                  ? Center(child: CircularProgressIndicator(color: primaryColor))
                   : ElevatedButton(onPressed: _createGroup, child: const Text('Create Group')),
             ],
           ),
@@ -632,17 +691,23 @@ class _JoinPageState extends State<JoinPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Join Group')),
-      // CORRECTED: Use Padding widget to apply padding
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Center(
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(30.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Text(
+                'Enter Group ID',
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: primaryColor),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 30),
               TextField(controller: _numberController, decoration: const InputDecoration(labelText: 'Group ID to Join')),
-              const SizedBox(height: 20),
+              const SizedBox(height: 40),
               _isLoading
-                  ? const CircularProgressIndicator()
+                  ? Center(child: CircularProgressIndicator(color: primaryColor))
                   : ElevatedButton(onPressed: _joinGroup, child: const Text('Join Group')),
             ],
           ),
@@ -652,13 +717,14 @@ class _JoinPageState extends State<JoinPage> {
   }
 }
 
-// -------------------- PROFILE PAGE --------------------
+// -------------------- PROFILE PAGE (Merged Logout) --------------------
 
 class ProfilePage extends StatefulWidget {
   final String username;
   final String name;
+  final VoidCallback onLogout; // Callback function for logout
 
-  const ProfilePage({Key? key, required this.username, required this.name}) : super(key: key);
+  const ProfilePage({Key? key, required this.username, required this.name, required this.onLogout}) : super(key: key);
 
   @override
   _ProfilePageState createState() => _ProfilePageState();
@@ -700,7 +766,6 @@ class _ProfilePageState extends State<ProfilePage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(data['message'])));
         if (data['success']) {
-          // Update local profile data immediately
           await DatabaseHelper.instance.saveProfile(widget.username, newName);
           Navigator.pop(context);
         }
@@ -717,22 +782,67 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      appBar: AppBar(title: const Text('Profile Settings')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(30.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Username: ${widget.username}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 20),
+            Center(
+              child: CircleAvatar(
+                radius: 50,
+                backgroundColor: secondaryColor,
+                child: const Icon(Icons.person, size: 50, color: Colors.white),
+              ),
+            ),
+            const SizedBox(height: 30),
+            Text(
+              'Username: ${widget.username}', 
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: primaryColor),
+            ),
+            const Divider(height: 30),
             TextField(
               controller: _nameController,
               decoration: const InputDecoration(labelText: 'Display Name'),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 30),
             _isLoading
-                ? const CircularProgressIndicator()
-                : ElevatedButton(onPressed: _updateProfile, child: const Text('Update Profile')),
+                ? Center(child: CircularProgressIndicator(color: primaryColor))
+                : ElevatedButton(
+                    onPressed: _updateProfile, 
+                    child: const Text('Update Profile'),
+                  ),
+            
+            const SizedBox(height: 50),
+
+            // Logout Button (Merged from MainPage)
+            ElevatedButton.icon(
+              onPressed: () {
+                // Show confirmation dialog before logging out
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Confirm Logout'),
+                    content: const Text('Are you sure you want to log out?'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel', style: TextStyle(color: primaryColor))),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(context); // Close dialog
+                          widget.onLogout(); // Execute the logout function
+                        }, 
+                        child: const Text('Logout', style: TextStyle(color: Colors.red)),
+                      ),
+                    ],
+                  ),
+                );
+              },
+              icon: const Icon(Icons.exit_to_app, color: Colors.white),
+              label: const Text('Logout'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
+              ),
+            ),
           ],
         ),
       ),
@@ -768,21 +878,17 @@ class _ChatPageState extends State<ChatPage> {
   bool _isLoading = false;
   Timer? _timer;
   final ScrollController _scrollController = ScrollController();
-
-  // Store the last successfully fetched timestamp for incremental fetch (INBOX)
   DateTime? _lastSyncedTime; 
 
   @override
   void initState() {
     super.initState();
     _loadLocalMessages().then((_) {
-      // 2. Then, run the full sync: outbox (send pending) + inbox (fetch new)
       _syncMessages().then((_) { 
         _scrollToBottom();
       });
     });
     
-    // Set up timer for polling every 3 seconds
     _timer = Timer.periodic(const Duration(seconds: 3), (Timer t) => _syncMessages(isPolling: true));
   }
 
@@ -813,7 +919,6 @@ class _ChatPageState extends State<ChatPage> {
   
   // --- OUTBOX PROCESSING (Local -> Server) ---
   Future<void> _processOutbox({bool isPolling = false}) async {
-      // Find all pending messages (is_synced = 0)
       final pendingMessages = await DatabaseHelper.instance.getPendingMessages(widget.groupNumber);
       
       if (pendingMessages.isEmpty) return;
@@ -828,7 +933,6 @@ class _ChatPageState extends State<ChatPage> {
           final url = Uri.parse("https://$SERVER_IP/send_message");
           final db = await DatabaseHelper.instance.database;
 
-          // Use a transaction for atomic updates to local DB
           await db.transaction((txn) async {
               for (var msg in pendingMessages) {
                   final response = await http.post(
@@ -843,12 +947,11 @@ class _ChatPageState extends State<ChatPage> {
                   final data = json.decode(response.body);
 
                   if (data['success']) {
-                      // Update the local database to mark it as synced (1) and use server time
                       await txn.update(
                           DatabaseHelper.tableName,
                           {
                             DatabaseHelper.columnIsSynced: 1, 
-                            DatabaseHelper.columnTime: data['time'] // Use server time
+                            DatabaseHelper.columnTime: data['time'] 
                           },
                           where: '${DatabaseHelper.columnId} = ?',
                           whereArgs: [msg[DatabaseHelper.columnId]],
@@ -859,7 +962,7 @@ class _ChatPageState extends State<ChatPage> {
               }
           });
           
-          await _loadLocalMessages(); // Refresh UI after outbox is processed
+          await _loadLocalMessages(); 
 
       } catch (e) {
           print("Outbox sync network error: $e");
@@ -890,14 +993,12 @@ class _ChatPageState extends State<ChatPage> {
             List<Map<String, dynamic>>.from(data['messages'] as List<dynamic>);
 
         if (serverMessages.isNotEmpty) {
-           // Find the maximum time from the fetched messages and update the marker
            final maxTime = serverMessages
                .map((m) => DateTime.parse(m['time']))
                .reduce((a, b) => a.isAfter(b) ? a : b);
                
            _lastSyncedTime = maxTime;
 
-          // Save new messages to local DB
           await DatabaseHelper.instance.bulkInsertMessages(serverMessages.map((msg) => {
             DatabaseHelper.columnGroupNumber: widget.groupNumber,
             DatabaseHelper.columnSender: msg['sender'],
@@ -906,7 +1007,6 @@ class _ChatPageState extends State<ChatPage> {
             DatabaseHelper.columnIsSynced: 1, 
           }).toList());
 
-          // Update UI from local DB
           final localMessages = await DatabaseHelper.instance.getMessages(widget.groupNumber);
           
           if (mounted) {
@@ -936,34 +1036,29 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  // Master Sync Method
   Future<void> _syncMessages({bool isPolling = false}) async {
     await _processOutbox(isPolling: isPolling);
     await _syncIncomingMessages(isPolling: isPolling);
   }
 
-  // Send message now saves locally, updates UI, then attempts sync
   Future<void> sendMessage() async {
     String text = messageController.text.trim();
     if (text.isEmpty) return;
 
-    // 1. Prepare message map with local time and set is_synced to 0
     final now = DateTime.now().toUtc().toIso8601String();
     final localMessage = {
       DatabaseHelper.columnGroupNumber: widget.groupNumber,
       DatabaseHelper.columnSender: widget.username,
       DatabaseHelper.columnMessage: text,
       DatabaseHelper.columnTime: now,
-      DatabaseHelper.columnIsSynced: 0, // PENDING
+      DatabaseHelper.columnIsSynced: 0, 
     };
 
-    // 2. Update local DB and UI instantly
     await DatabaseHelper.instance.insertMessage(localMessage);
     messageController.clear();
     await _loadLocalMessages();
     _scrollToBottom();
     
-    // 3. Attempt to sync immediately
     await _syncMessages(); 
   }
 
@@ -974,8 +1069,8 @@ class _ChatPageState extends State<ChatPage> {
         title: const Text('Confirm Leave'),
         content: const Text('Are you sure you want to leave this group? All local data for this chat will be deleted.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('LEAVE')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('CANCEL', style: TextStyle(color: primaryColor))),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('LEAVE', style: TextStyle(color: Colors.red))),
         ],
       ),
     ) ?? false;
@@ -995,7 +1090,6 @@ class _ChatPageState extends State<ChatPage> {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(data['message'])));
         if (data['success']) {
-          // Delete ALL local data associated with this group
           await DatabaseHelper.instance.deleteGroupMessages(widget.groupNumber);
           await DatabaseHelper.instance.deleteGroupMetadata(widget.groupNumber);
           Navigator.pop(context, true); 
@@ -1014,9 +1108,9 @@ class _ChatPageState extends State<ChatPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirm Delete'),
-        content: const Text('WARNING: Are you sure you want to delete this group and all its messages? This action is irreversible. All local data will also be deleted.'),
+        content: const Text('WARNING: Are you sure you want to delete this group and all its messages? This action is irreversible.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('CANCEL', style: TextStyle(color: primaryColor))),
           TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('DELETE', style: TextStyle(color: Colors.red))),
         ],
       ),
@@ -1037,7 +1131,6 @@ class _ChatPageState extends State<ChatPage> {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(data['message'])));
         if (data['success']) {
-          // Delete ALL local data associated with this group
           await DatabaseHelper.instance.deleteGroupMessages(widget.groupNumber);
           await DatabaseHelper.instance.deleteGroupMetadata(widget.groupNumber);
           Navigator.pop(context, true); 
@@ -1055,7 +1148,7 @@ class _ChatPageState extends State<ChatPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Group Settings'),
+        title: Text('${widget.groupName} Settings'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1063,7 +1156,7 @@ class _ChatPageState extends State<ChatPage> {
               leading: const Icon(Icons.exit_to_app),
               title: const Text('Leave Group'),
               onTap: () {
-                Navigator.pop(context); // Close dialog
+                Navigator.pop(context); 
                 leaveGroup();
               },
             ),
@@ -1072,7 +1165,7 @@ class _ChatPageState extends State<ChatPage> {
                 leading: const Icon(Icons.delete_forever, color: Colors.red),
                 title: const Text('Delete Group (Admin)', style: TextStyle(color: Colors.red)),
                 onTap: () {
-                  Navigator.pop(context); // Close dialog
+                  Navigator.pop(context); 
                   deleteGroup();
                 },
               ),
@@ -1087,7 +1180,6 @@ class _ChatPageState extends State<ChatPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.groupName),
-        backgroundColor: Colors.blue[900],
         actions: [
           IconButton(
             icon: const Icon(Icons.more_vert),
@@ -1107,11 +1199,8 @@ class _ChatPageState extends State<ChatPage> {
                 itemBuilder: (context, index) {
                   var msg = messages[index];
                   bool isMe = (msg['sender'] as String) == widget.username;
-                  
-                  // Check if the message is only local/not synced
                   bool isPending = (msg[DatabaseHelper.columnIsSynced] ?? 1) == 0; 
                   
-                  // Parse the time string
                   final timeString = msg['time'] as String? ?? DateTime.now().toUtc().toIso8601String();
                   String displayTime = '';
                   try {
@@ -1121,7 +1210,7 @@ class _ChatPageState extends State<ChatPage> {
                   }
 
                   return Container(
-                    margin: const EdgeInsets.symmetric(vertical: 5),
+                    margin: const EdgeInsets.symmetric(vertical: 4),
                     alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
                     child: Container(
                       constraints: BoxConstraints(
@@ -1129,28 +1218,37 @@ class _ChatPageState extends State<ChatPage> {
                       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
                       decoration: BoxDecoration(
                         color: isMe 
-                            ? (isPending ? Colors.yellow[100] : Colors.blue[100])
+                            ? (isPending ? secondaryColor.withOpacity(0.5) : primaryColor.withOpacity(0.8))
                             : Colors.grey[300],
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(isMe ? 12 : 0),
+                          topRight: Radius.circular(isMe ? 0 : 12),
+                          bottomLeft: const Radius.circular(12),
+                          bottomRight: const Radius.circular(12),
+                        ),
                       ),
                       child: Column(
                         crossAxisAlignment:
                             isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                         children: [
+                          if (!isMe)
+                            Text(
+                              msg['sender'] as String,
+                              style: TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.bold, color: primaryColor),
+                            ),
+                          if (!isMe) const SizedBox(height: 3),
                           Text(
-                            isMe ? "You" : (msg['sender'] as String),
-                            style: const TextStyle(
-                                fontSize: 12, fontWeight: FontWeight.bold),
+                            msg['message'] as String,
+                            style: TextStyle(color: isMe ? Colors.white : Colors.black),
                           ),
-                          const SizedBox(height: 3),
-                          Text(msg['message'] as String),
+                          const SizedBox(height: 4),
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                                 Text(
                                 displayTime,
-                                style:
-                                    const TextStyle(fontSize: 10, color: Colors.black54),
+                                style: TextStyle(fontSize: 10, color: isMe ? Colors.white70 : Colors.black54),
                                 ),
                                 if (isMe && isPending)
                                     Padding(
@@ -1172,8 +1270,8 @@ class _ChatPageState extends State<ChatPage> {
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            color: Colors.grey[200],
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            color: Colors.white,
             child: Row(
               children: [
                 Expanded(
@@ -1182,24 +1280,28 @@ class _ChatPageState extends State<ChatPage> {
                     decoration: InputDecoration(
                       hintText: "Type a message...",
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(25),
+                        borderSide: BorderSide.none,
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 15),
+                      fillColor: Colors.grey[100],
+                      filled: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                     ),
                     onSubmitted: (_) => sendMessage(),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 _isLoading
-                    ? const CircularProgressIndicator()
-                    : ElevatedButton(
+                    ? Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: CircularProgressIndicator(color: primaryColor),
+                      )
+                    : FloatingActionButton(
                         onPressed: sendMessage,
-                        style: ElevatedButton.styleFrom(
-                          shape: const CircleBorder(),
-                          padding: const EdgeInsets.all(12),
-                          backgroundColor: Colors.blue[900],
-                        ),
-                        child: const Icon(Icons.send),
+                        heroTag: 'sendBtn',
+                        backgroundColor: primaryColor,
+                        mini: true,
+                        child: const Icon(Icons.send, color: Colors.white),
                       ),
               ],
             ),
