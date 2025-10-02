@@ -1110,7 +1110,7 @@ class _ChatPageState extends State<ChatPage> {
         context: context,
         apiKey: GIPHY_API_KEY, 
         tabColor: primaryColor,
-        showAttribution: false,
+        //showAttribution: false,
         fullScreenDialog: true,
         // Request only GIF media type
         mediaType: GiphyMediaType.gif, 
