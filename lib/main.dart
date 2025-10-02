@@ -1113,7 +1113,7 @@ class _ChatPageState extends State<ChatPage> {
         //showAttribution: false,
       //  fullScreenDialog: true,
         // Request only GIF media type
-        mediaType: GiphyMediaType.gif, 
+       // mediaType: GiphyMediaType.gif, 
     );
     
     if (gif != null && gif.images?.original?.url != null) {
