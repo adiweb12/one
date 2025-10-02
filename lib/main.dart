@@ -879,6 +879,14 @@ class _ChatPageState extends State<ChatPage> {
   Timer? _timer;
   final ScrollController _scrollController = ScrollController();
   DateTime? _lastSyncedTime; 
+  
+  // A simple check to see if the message is a potential media URL
+  bool _isMedia(String message) {
+    return message.toLowerCase().startsWith('http') && 
+           (message.toLowerCase().contains('.gif') || 
+            message.toLowerCase().contains('.png') ||
+            message.toLowerCase().contains('.jpg'));
+  }
 
   @override
   void initState() {
@@ -1061,6 +1069,57 @@ class _ChatPageState extends State<ChatPage> {
     
     await _syncMessages(); 
   }
+  
+  // 🌟 NEW: Method to handle sending non-text messages (like a URL)
+  Future<void> _sendSpecialMessage(String content) async {
+    final now = DateTime.now().toUtc().toIso8601String();
+    
+    // In a production app, you would likely add a 'type' column 
+    // (e.g., 'text', 'image', 'gif') to the database 
+    // to distinguish message types on the receiving end.
+    
+    final localMessage = {
+      DatabaseHelper.columnGroupNumber: widget.groupNumber,
+      DatabaseHelper.columnSender: widget.username,
+      // Store the URL in the message column for simplicity for now
+      DatabaseHelper.columnMessage: content, 
+      DatabaseHelper.columnTime: now,
+      DatabaseHelper.columnIsSynced: 0, 
+    };
+
+    await DatabaseHelper.instance.insertMessage(localMessage);
+    await _loadLocalMessages();
+    _scrollToBottom();
+    await _syncMessages();
+  }
+
+  // 🌟 NEW: Method to handle GIF/Sticker selection (Placeholder)
+  void _showGifStickerSelection() async {
+    // In a real app, you would integrate a package here, e.g.:
+    /*
+    final GiphyGif? gif = await GiphyGet.getGif(
+        context: context,
+        apiKey: "YOUR_GIPHY_API_KEY", // Replace with your key
+        showAttribution: false,
+        fullScreenDialog: true,
+    );
+    
+    if (gif != null) {
+      // Logic to send the GIF URL or a structured message
+      _sendSpecialMessage(gif.url); 
+    }
+    */
+
+    // Placeholder: Show a simple prompt and send a test GIF URL
+    ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Simulating GIF send...')),
+    );
+    
+    // Send a placeholder GIF URL (replace with a real one for testing)
+    const testGifUrl = 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExYzRlcWxtcnhqOGg5MjA1d283N2VldWF4N3p5cTBsc2F5NW9wYnNtbCZlcD12MV9pbnRlcm5hbF9naWYmY3Q9Zw/l0MYIqF3c2u9n0mEw/giphy.gif';
+    _sendSpecialMessage(testGifUrl);
+  }
+
 
   Future<void> leaveGroup() async {
     final bool confirm = await showDialog(
@@ -1200,6 +1259,8 @@ class _ChatPageState extends State<ChatPage> {
                   var msg = messages[index];
                   bool isMe = (msg['sender'] as String) == widget.username;
                   bool isPending = (msg[DatabaseHelper.columnIsSynced] ?? 1) == 0; 
+                  String content = msg['message'] as String;
+                  bool isMediaMessage = _isMedia(content);
                   
                   final timeString = msg['time'] as String? ?? DateTime.now().toUtc().toIso8601String();
                   String displayTime = '';
@@ -1238,10 +1299,41 @@ class _ChatPageState extends State<ChatPage> {
                                   fontSize: 12, fontWeight: FontWeight.bold, color: primaryColor),
                             ),
                           if (!isMe) const SizedBox(height: 3),
-                          Text(
-                            msg['message'] as String,
-                            style: TextStyle(color: isMe ? Colors.white : Colors.black),
-                          ),
+                          
+                          // 🌟 MODIFIED: Conditional content rendering for media
+                          if (isMediaMessage)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8.0),
+                              child: Image.network(
+                                content,
+                                loadingBuilder: (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return Container(
+                                    width: 150,
+                                    height: 150,
+                                    alignment: Alignment.center,
+                                    child: CircularProgressIndicator(
+                                      value: loadingProgress.expectedTotalBytes != null
+                                          ? loadingProgress.cumulativeBytesLoaded /
+                                              loadingProgress.expectedTotalBytes!
+                                          : null,
+                                      color: isMe ? Colors.white : primaryColor,
+                                    ),
+                                  );
+                                },
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Text('Failed to load media.', style: TextStyle(color: isMe ? Colors.white : Colors.red));
+                                },
+                                width: 150,
+                                fit: BoxFit.contain,
+                              ),
+                            )
+                          else
+                            Text(
+                              content,
+                              style: TextStyle(color: isMe ? Colors.white : Colors.black),
+                            ),
+                            
                           const SizedBox(height: 4),
                           Row(
                             mainAxisSize: MainAxisSize.min,
@@ -1274,9 +1366,20 @@ class _ChatPageState extends State<ChatPage> {
             color: Colors.white,
             child: Row(
               children: [
+                // 🌟 NEW: GIF/Sticker Button
+                IconButton(
+                  icon: const Icon(Icons.gif_box_outlined),
+                  color: primaryColor,
+                  onPressed: _showGifStickerSelection,
+                  tooltip: 'Send GIF/Sticker',
+                ),
+                const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
                     controller: messageController,
+                    // 🌟 MODIFIED: Allow multiline input (supports 'Enter' key for newline)
+                    keyboardType: TextInputType.multiline,
+                    maxLines: null, // Allows the text field to grow vertically
                     decoration: InputDecoration(
                       hintText: "Type a message...",
                       border: OutlineInputBorder(
@@ -1287,7 +1390,8 @@ class _ChatPageState extends State<ChatPage> {
                       filled: true,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                     ),
-                    onSubmitted: (_) => sendMessage(),
+                    // Removed onSubmitted as it's not reliably triggered on multiline mobile
+                    // The send button is the primary mechanism
                   ),
                 ),
                 const SizedBox(width: 8),
