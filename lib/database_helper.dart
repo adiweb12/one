@@ -151,6 +151,7 @@ class DatabaseHelper {
       }).toList();
   }
   
+  // 🌟 FIX: Ensure group status is also deleted
   Future<int> deleteGroupMetadata(String groupNumber) async {
       final db = await instance.database;
       // Also delete group status when deleting group metadata
@@ -222,14 +223,17 @@ class DatabaseHelper {
   
   // 🌟 NEW: Get count of unread messages for a group
   Future<int> getUnreadCount(String groupNumber, String? lastReadTime) async {
+      final db = await instance.database;
+      
       if (lastReadTime == null) {
           // If no read time is set, all messages are unread
-          final db = await instance.database;
-          final count = await db.rawQuery('SELECT COUNT(*) FROM $tableName WHERE $columnGroupNumber = ?', [groupNumber]);
+          final count = await db.rawQuery(
+              'SELECT COUNT(*) FROM $tableName WHERE $columnGroupNumber = ?', 
+              [groupNumber]
+          );
           return Sqflite.firstIntValue(count) ?? 0;
       }
       
-      final db = await instance.database;
       // Find the count of messages with a time strictly GREATER than the last read time
       final count = await db.rawQuery(
           'SELECT COUNT(*) FROM $tableName WHERE $columnGroupNumber = ? AND $columnTime > ?',
