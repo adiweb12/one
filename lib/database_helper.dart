@@ -27,6 +27,12 @@ class DatabaseHelper {
   static const String userTableName = 'user_profile';
   static const String userColumnUsername = 'username';
   static const String userColumnName = 'name';
+  
+  // 🌟 NEW: Table for tracking group status (e.g., last read time)
+  static const String statusTableName = 'group_status';
+  static const String statusColumnGroupNumber = 'group_number';
+  static const String statusColumnLastReadTime = 'last_read_time'; // ISO 8601 string
+
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -37,8 +43,26 @@ class DatabaseHelper {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
+    // Use an onUpgrade function to handle existing databases from older versions
+    return await openDatabase(path, version: 2, onCreate: _createDB, onUpgrade: _onUpgrade);
+  }
+  
+  // 🌟 NEW: Database migration for version 2
+  Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+        // Create the new group_status table if upgrading from a version that didn't have it
+        await _createGroupStatusTable(db);
+    }
+  }
 
-    return await openDatabase(path, version: 1, onCreate: _createDB);
+  Future _createGroupStatusTable(Database db) async {
+    const textType = 'TEXT NOT NULL';
+    await db.execute('''
+      CREATE TABLE $statusTableName (
+        $statusColumnGroupNumber $textType PRIMARY KEY,
+        $statusColumnLastReadTime $textType 
+      )
+    ''');
   }
 
   Future _createDB(Database db, int version) async {
@@ -75,6 +99,9 @@ class DatabaseHelper {
         $userColumnName TEXT
       )
     ''');
+    
+    // 🌟 NEW: 4. Group Status Table
+    await _createGroupStatusTable(db);
   }
 
   // --- Profile CRUD Operations ---
@@ -126,6 +153,8 @@ class DatabaseHelper {
   
   Future<int> deleteGroupMetadata(String groupNumber) async {
       final db = await instance.database;
+      // Also delete group status when deleting group metadata
+      await db.delete(statusTableName, where: '$statusColumnGroupNumber = ?', whereArgs: [groupNumber]); 
       return await db.delete(
         groupTableName,
         where: '$groupColumnNumber = ?',
@@ -176,6 +205,39 @@ class DatabaseHelper {
       orderBy: '$columnTime ASC', // Order chronologically
     );
   }
+  
+  // 🌟 NEW: Get only the latest message time for a group
+  Future<String?> getLatestMessageTime(String groupNumber) async {
+      final db = await instance.database;
+      final results = await db.query(
+          tableName,
+          columns: [columnTime],
+          where: '$columnGroupNumber = ?',
+          whereArgs: [groupNumber],
+          orderBy: '$columnTime DESC',
+          limit: 1,
+      );
+      return results.isNotEmpty ? results.first[columnTime] as String : null;
+  }
+  
+  // 🌟 NEW: Get count of unread messages for a group
+  Future<int> getUnreadCount(String groupNumber, String? lastReadTime) async {
+      if (lastReadTime == null) {
+          // If no read time is set, all messages are unread
+          final db = await instance.database;
+          final count = await db.rawQuery('SELECT COUNT(*) FROM $tableName WHERE $columnGroupNumber = ?', [groupNumber]);
+          return Sqflite.firstIntValue(count) ?? 0;
+      }
+      
+      final db = await instance.database;
+      // Find the count of messages with a time strictly GREATER than the last read time
+      final count = await db.rawQuery(
+          'SELECT COUNT(*) FROM $tableName WHERE $columnGroupNumber = ? AND $columnTime > ?',
+          [groupNumber, lastReadTime]
+      );
+      return Sqflite.firstIntValue(count) ?? 0;
+  }
+
 
   // Delete all messages for a specific group (when leaving/deleting)
   Future<int> deleteGroupMessages(String groupNumber) async {
@@ -196,5 +258,29 @@ class DatabaseHelper {
         whereArgs: [groupNumber, 0],
         orderBy: '$columnTime ASC',
     );
+  }
+  
+  // --- Group Status (Last Read Time) CRUD Operations ---
+  
+  Future<void> setLastReadTime(String groupNumber, DateTime time) async {
+      final db = await instance.database;
+      await db.insert(
+          statusTableName,
+          {
+              statusColumnGroupNumber: groupNumber,
+              statusColumnLastReadTime: time.toUtc().toIso8601String(),
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+  
+  Future<String?> getLastReadTime(String groupNumber) async {
+      final db = await instance.database;
+      final results = await db.query(
+          statusTableName, 
+          columns: [statusColumnLastReadTime],
+          where: '$statusColumnGroupNumber = ?', 
+          whereArgs: [groupNumber]
+      );
+      return results.isNotEmpty ? results.first[statusColumnLastReadTime] as String? : null;
   }
 }
