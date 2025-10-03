@@ -1,290 +1,301 @@
-// database_helper.dart
+// -------------------- DATABASE HELPER (SQLITE) --------------------
 
-import 'package:sqflite/sqflite.dart';
+// NOTE: This class is assumed to be in a separate file (database_helper.dart)
+// but included here for completeness of the overall application logic.
+ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import 'dart:async';
 
 class DatabaseHelper {
-  static final DatabaseHelper instance = DatabaseHelper._init();
+  static final _databaseName = "OneChatDB.db";
+  // Increment the version if you change the database schema
+  static final _databaseVersion = 3; 
+
+  // Tables
+  static final tableName = 'messages';
+  static final groupTableName = 'groups_meta';
+  static final profileTableName = 'profile';
+  static final lastReadTableName = 'last_read';
+
+  // Columns for messages table
+  static final columnId = '_id';
+  static final columnGroupNumber = 'group_number';
+  static final columnSender = 'sender';
+  static final columnMessage = 'message';
+  static final columnTime = 'time';
+  static final columnIsSynced = 'is_synced';
+
+  // Columns for groups_meta table
+  static final columnGroupName = 'group_name';
+  static final columnGroupNumberMeta = 'group_number'; // Unique ID for group
+  static final columnIsCreator = 'is_creator';
+
+  // Columns for profile table
+  static final columnUsername = 'username';
+  static final columnProfileName = 'name';
+
+  // Columns for last_read table
+  static final columnLastReadGroupNumber = 'group_number';
+  static final columnLastReadTime = 'last_read_time';
+
+  DatabaseHelper._privateConstructor();
+  static final DatabaseHelper instance = DatabaseHelper._privateConstructor();
+
   static Database? _database;
-
-  DatabaseHelper._init();
-
-  // --- Table and Column Names ---
-  static const String tableName = 'messages';
-  static const String columnId = '_id';
-  static const String columnGroupNumber = 'group_number';
-  static const String columnSender = 'sender';
-  static const String columnMessage = 'message';
-  static const String columnTime = 'time'; // ISO 8601 string (Crucial for ordering/sync)
-  static const String columnIsSynced = 'is_synced'; // 0 for pending, 1 for synced
-
-  static const String groupTableName = 'user_groups';
-  static const String groupColumnNumber = 'group_number';
-  static const String groupColumnName = 'name';
-  static const String groupColumnIsCreator = 'is_creator';
-
-  static const String userTableName = 'user_profile';
-  static const String userColumnUsername = 'username';
-  static const String userColumnName = 'name';
-  
-  // 🌟 NEW: Table for tracking group status (e.g., last read time)
-  static const String statusTableName = 'group_status';
-  static const String statusColumnGroupNumber = 'group_number';
-  static const String statusColumnLastReadTime = 'last_read_time'; // ISO 8601 string
-
-
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDB('onechat_app.db');
+    _database = await _initDatabase();
     return _database!;
   }
 
-  Future<Database> _initDB(String filePath) async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, filePath);
-    // Use an onUpgrade function to handle existing databases from older versions
-    return await openDatabase(path, version: 2, onCreate: _createDB, onUpgrade: _onUpgrade);
-  }
-  
-  // 🌟 NEW: Database migration for version 2
-  Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-        // Create the new group_status table if upgrading from a version that didn't have it
-        await _createGroupStatusTable(db);
-    }
+  _initDatabase() async {
+    String path = join(await getDatabasesPath(), _databaseName);
+    return await openDatabase(path,
+        version: _databaseVersion, onCreate: _onCreate, onUpgrade: _onUpgrade);
   }
 
-  Future _createGroupStatusTable(Database db) async {
-    const textType = 'TEXT NOT NULL';
-    await db.execute('''
-      CREATE TABLE $statusTableName (
-        $statusColumnGroupNumber $textType PRIMARY KEY,
-        $statusColumnLastReadTime $textType 
-      )
-    ''');
-  }
-
-  Future _createDB(Database db, int version) async {
-    const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
-    const textType = 'TEXT NOT NULL';
-    const intType = 'INTEGER NOT NULL';
-
-    // 1. Messages Table (for chat history)
+  Future _onCreate(Database db, int version) async {
+    // Messages table
     await db.execute('''
       CREATE TABLE $tableName (
-        $columnId $idType,
-        $columnGroupNumber $textType,
-        $columnSender $textType,
-        $columnMessage $textType,
-        $columnTime $textType,
-        $columnIsSynced $intType,
-        UNIQUE ($columnGroupNumber, $columnSender, $columnMessage, $columnTime) ON CONFLICT REPLACE
+        $columnId INTEGER PRIMARY KEY,
+        $columnGroupNumber TEXT NOT NULL,
+        $columnSender TEXT NOT NULL,
+        $columnMessage TEXT NOT NULL,
+        $columnTime TEXT NOT NULL,
+        $columnIsSynced INTEGER NOT NULL DEFAULT 0
       )
     ''');
 
-    // 2. User Groups Table (for offline group list)
+    // Group metadata table
     await db.execute('''
       CREATE TABLE $groupTableName (
-        $groupColumnNumber TEXT PRIMARY KEY,
-        $groupColumnName TEXT NOT NULL,
-        $groupColumnIsCreator $intType
-      )
-    ''');
-
-    // 3. User Profile Table (for offline profile info)
-    await db.execute('''
-      CREATE TABLE $userTableName (
-        $userColumnUsername TEXT PRIMARY KEY,
-        $userColumnName TEXT
+        $columnGroupNumberMeta TEXT PRIMARY KEY,
+        $columnGroupName TEXT NOT NULL,
+        $columnIsCreator INTEGER NOT NULL
       )
     ''');
     
-    // 🌟 NEW: 4. Group Status Table
-    await _createGroupStatusTable(db);
+    // Profile table
+    await db.execute('''
+      CREATE TABLE $profileTableName (
+        $columnUsername TEXT PRIMARY KEY,
+        $columnProfileName TEXT
+      )
+    ''');
+
+    // Last Read Time table
+    await db.execute('''
+      CREATE TABLE $lastReadTableName (
+        $columnLastReadGroupNumber TEXT PRIMARY KEY,
+        $columnLastReadTime TEXT
+      )
+    ''');
   }
 
-  // --- Profile CRUD Operations ---
+  Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    // Simple way to handle upgrades: drop and recreate (only for non-production/testing)
+    if (oldVersion < newVersion) {
+      await db.execute('DROP TABLE IF EXISTS $tableName');
+      await db.execute('DROP TABLE IF EXISTS $groupTableName');
+      await db.execute('DROP TABLE IF EXISTS $profileTableName');
+      await db.execute('DROP TABLE IF EXISTS $lastReadTableName');
+      await _onCreate(db, newVersion);
+    }
+  }
 
-  Future<void> saveProfile(String username, String name) async {
-      final db = await instance.database;
-      await db.insert(
-          userTableName,
-          {userColumnUsername: username, userColumnName: name},
-          conflictAlgorithm: ConflictAlgorithm.replace);
+  // --- Profile Operations ---
+  Future<int> saveProfile(String username, String name) async {
+    Database db = await instance.database;
+    return await db.insert(
+      profileTableName, 
+      {columnUsername: username, columnProfileName: name}, 
+      conflictAlgorithm: ConflictAlgorithm.replace
+    );
   }
 
   Future<Map<String, dynamic>?> getProfile(String username) async {
-      final db = await instance.database;
-      final results = await db.query(userTableName, where: '$userColumnUsername = ?', whereArgs: [username]);
-      return results.isNotEmpty ? results.first : null;
+    Database db = await instance.database;
+    List<Map<String, dynamic>> maps = await db.query(
+      profileTableName,
+      where: '$columnUsername = ?',
+      whereArgs: [username]
+    );
+    if (maps.isNotEmpty) {
+      return maps.first;
+    }
+    return null;
   }
 
-  // --- Group Metadata CRUD Operations ---
+  // --- Group Operations ---
+  Future<void> saveGroups(List<Map<String, dynamic>> serverGroups) async {
+    Database db = await instance.database;
+    
+    // 1. Get current local group numbers
+    List<Map<String, dynamic>> localGroups = await db.query(groupTableName, columns: [columnGroupNumberMeta]);
+    Set<String> localGroupNumbers = localGroups.map((g) => g[columnGroupNumberMeta] as String).toSet();
 
-  Future<void> saveGroups(List<Map<String, dynamic>> groups) async {
-      final db = await instance.database;
-      await db.transaction((txn) async {
-          // Clear old groups first to ensure deleted/left groups are removed
-          await txn.delete(groupTableName); 
-          for (final group in groups) {
-              await txn.insert(
-                  groupTableName,
-                  {
-                      groupColumnNumber: group['number'],
-                      groupColumnName: group['name'],
-                      groupColumnIsCreator: group['is_creator'] ? 1 : 0,
-                  },
-                  conflictAlgorithm: ConflictAlgorithm.replace);
-          }
-      });
+    // 2. Get server group numbers
+    Set<String> serverGroupNumbers = serverGroups.map((g) => g['number'] as String).toSet();
+
+    // 3. Delete local groups that are NOT in the server list (i.e., deleted or left groups)
+    Set<String> groupsToDelete = localGroupNumbers.difference(serverGroupNumbers);
+    for (String groupNumber in groupsToDelete) {
+        await deleteGroupMetadata(groupNumber);
+        await deleteGroupMessages(groupNumber);
+        await deleteLastReadTime(groupNumber);
+    }
+
+    // 4. Insert/Update remaining groups from the server list
+    Batch batch = db.batch();
+    for (var group in serverGroups) {
+      batch.insert(
+        groupTableName,
+        {
+          columnGroupNumberMeta: group['number'],
+          columnGroupName: group['name'],
+          columnIsCreator: group['is_creator'] ? 1 : 0,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    await batch.commit(noResult: true);
   }
 
   Future<List<Map<String, dynamic>>> getGroups() async {
-      final db = await instance.database;
-      final results = await db.query(groupTableName);
-      // Map integer (1/0) back to boolean
-      return results.map((map) => {
-          'number': map[groupColumnNumber],
-          'name': map[groupColumnName],
-          'is_creator': (map[groupColumnIsCreator] as int) == 1,
-      }).toList();
+    Database db = await instance.database;
+    List<Map<String, dynamic>> maps = await db.query(groupTableName);
+    return maps.map((map) => {
+      'number': map[columnGroupNumberMeta],
+      'name': map[columnGroupName],
+      'is_creator': map[columnIsCreator] == 1,
+    }).toList();
   }
-  
-  // 🌟 FIX: Ensure group status is also deleted
-  Future<int> deleteGroupMetadata(String groupNumber) async {
-      final db = await instance.database;
-      // Also delete group status when deleting group metadata
-      await db.delete(statusTableName, where: '$statusColumnGroupNumber = ?', whereArgs: [groupNumber]); 
-      return await db.delete(
-        groupTableName,
-        where: '$groupColumnNumber = ?',
-        whereArgs: [groupNumber],
+
+  Future<void> deleteGroupMetadata(String groupNumber) async {
+      Database db = await instance.database;
+      await db.delete(
+          groupTableName,
+          where: '$columnGroupNumberMeta = ?',
+          whereArgs: [groupNumber]
       );
   }
 
-
-  // --- Message CRUD Operations ---
-
-  // Insert a single message (used for local-first send/outbox)
+  // --- Message Operations ---
   Future<int> insertMessage(Map<String, dynamic> message) async {
-    final db = await instance.database;
-    message.remove(columnId);
+    Database db = await instance.database;
     return await db.insert(tableName, message, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  // Bulk insert/update messages from the server
   Future<void> bulkInsertMessages(List<Map<String, dynamic>> messages) async {
-    final db = await instance.database;
-    await db.transaction((txn) async {
-      for (final message in messages) {
-        final mapToInsert = {
-          columnGroupNumber: message[columnGroupNumber] ?? message['groupNumber'],
-          columnSender: message[columnSender] ?? message['sender'],
-          columnMessage: message[columnMessage] ?? message['message'],
-          columnTime: message[columnTime] ?? message['time'],
-          columnIsSynced: message[columnIsSynced] ?? 1, // Assume server data is synced (1)
-        };
-        mapToInsert.remove(columnId);
-        
-        await txn.insert(
-          tableName,
-          mapToInsert,
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
+      Database db = await instance.database;
+      Batch batch = db.batch();
+      for (var message in messages) {
+          batch.insert(tableName, message, conflictAlgorithm: ConflictAlgorithm.ignore);
       }
-    });
+      await batch.commit(noResult: true);
   }
 
-  // Get all messages for a specific group, ordered by time
   Future<List<Map<String, dynamic>>> getMessages(String groupNumber) async {
-    final db = await instance.database;
-    return await db.query(
+    Database db = await instance.database;
+    List<Map<String, dynamic>> maps = await db.query(
       tableName,
       where: '$columnGroupNumber = ?',
       whereArgs: [groupNumber],
-      orderBy: '$columnTime ASC', // Order chronologically
+      orderBy: '$columnTime ASC, $columnId ASC', // Sort by time, then local ID for stability
     );
+    return maps;
   }
   
-  // 🌟 NEW: Get only the latest message time for a group
   Future<String?> getLatestMessageTime(String groupNumber) async {
-      final db = await instance.database;
-      final results = await db.query(
-          tableName,
-          columns: [columnTime],
-          where: '$columnGroupNumber = ?',
-          whereArgs: [groupNumber],
-          orderBy: '$columnTime DESC',
-          limit: 1,
-      );
-      return results.isNotEmpty ? results.first[columnTime] as String : null;
-  }
-  
-  // 🌟 NEW: Get count of unread messages for a group
-  Future<int> getUnreadCount(String groupNumber, String? lastReadTime) async {
-      final db = await instance.database;
-      
-      if (lastReadTime == null) {
-          // If no read time is set, all messages are unread
-          final count = await db.rawQuery(
-              'SELECT COUNT(*) FROM $tableName WHERE $columnGroupNumber = ?', 
-              [groupNumber]
-          );
-          return Sqflite.firstIntValue(count) ?? 0;
-      }
-      
-      // Find the count of messages with a time strictly GREATER than the last read time
-      final count = await db.rawQuery(
-          'SELECT COUNT(*) FROM $tableName WHERE $columnGroupNumber = ? AND $columnTime > ?',
-          [groupNumber, lastReadTime]
-      );
-      return Sqflite.firstIntValue(count) ?? 0;
+    Database db = await instance.database;
+    List<Map<String, dynamic>> maps = await db.query(
+      tableName,
+      columns: [columnTime],
+      where: '$columnGroupNumber = ?',
+      whereArgs: [groupNumber],
+      orderBy: '$columnTime DESC',
+      limit: 1,
+    );
+    return maps.isNotEmpty ? maps.first[columnTime] : null;
   }
 
+  Future<List<Map<String, dynamic>>> getPendingMessages(String groupNumber) async {
+    Database db = await instance.database;
+    List<Map<String, dynamic>> maps = await db.query(
+      tableName,
+      where: '$columnGroupNumber = ? AND $columnIsSynced = 0',
+      whereArgs: [groupNumber],
+      orderBy: '$columnId ASC',
+    );
+    return maps;
+  }
 
-  // Delete all messages for a specific group (when leaving/deleting)
-  Future<int> deleteGroupMessages(String groupNumber) async {
-    final db = await instance.database;
-    return await db.delete(
+  Future<void> deleteGroupMessages(String groupNumber) async {
+    Database db = await instance.database;
+    await db.delete(
       tableName,
       where: '$columnGroupNumber = ?',
       whereArgs: [groupNumber],
     );
   }
   
-  // Get all pending messages for a specific group (for outbox sync)
-  Future<List<Map<String, dynamic>>> getPendingMessages(String groupNumber) async {
-    final db = await instance.database;
-    return await db.query(
-        tableName,
-        where: '$columnGroupNumber = ? AND $columnIsSynced = ?',
-        whereArgs: [groupNumber, 0],
-        orderBy: '$columnTime ASC',
-    );
-  }
-  
-  // --- Group Status (Last Read Time) CRUD Operations ---
-  
+  // --- Last Read Operations (for Unread Count) ---
   Future<void> setLastReadTime(String groupNumber, DateTime time) async {
-      final db = await instance.database;
+      Database db = await instance.database;
       await db.insert(
-          statusTableName,
+          lastReadTableName,
           {
-              statusColumnGroupNumber: groupNumber,
-              statusColumnLastReadTime: time.toUtc().toIso8601String(),
+              columnLastReadGroupNumber: groupNumber,
+              columnLastReadTime: time.toUtc().toIso8601String(),
           },
-          conflictAlgorithm: ConflictAlgorithm.replace);
+          conflictAlgorithm: ConflictAlgorithm.replace
+      );
   }
-  
-  Future<String?> getLastReadTime(String groupNumber) async {
-      final db = await instance.database;
-      final results = await db.query(
-          statusTableName, 
-          columns: [statusColumnLastReadTime],
-          where: '$statusColumnGroupNumber = ?', 
+
+  Future<DateTime?> getLastReadTime(String groupNumber) async {
+      Database db = await instance.database;
+      List<Map<String, dynamic>> maps = await db.query(
+          lastReadTableName,
+          columns: [columnLastReadTime],
+          where: '$columnLastReadGroupNumber = ?',
           whereArgs: [groupNumber]
       );
-      return results.isNotEmpty ? results.first[statusColumnLastReadTime] as String? : null;
+      if (maps.isNotEmpty && maps.first[columnLastReadTime] != null) {
+          try {
+              return DateTime.parse(maps.first[columnLastReadTime] as String);
+          } catch (e) {
+              return null;
+          }
+      }
+      return null;
+  }
+
+  Future<void> deleteLastReadTime(String groupNumber) async {
+      Database db = await instance.database;
+      await db.delete(
+          lastReadTableName,
+          where: '$columnLastReadGroupNumber = ?',
+          whereArgs: [groupNumber]
+      );
+  }
+
+  Future<int> getUnreadCount(String groupNumber, DateTime? lastReadTime) async {
+      Database db = await instance.database;
+      if (lastReadTime == null) {
+          // If never read, count all messages
+          return Sqflite.firstIntValue(await db.rawQuery(
+              'SELECT COUNT(*) FROM $tableName WHERE $columnGroupNumber = ?', 
+              [groupNumber]
+          )) ?? 0;
+      }
+
+      // Count messages newer than the last read time (must be synced messages)
+      final lastReadTimeISO = lastReadTime.toUtc().toIso8601String();
+      return Sqflite.firstIntValue(await db.rawQuery(
+          // Note: Check is_synced=1 is important, as local messages should not affect the unread count calculation on MainPage
+          'SELECT COUNT(*) FROM $tableName WHERE $columnGroupNumber = ? AND $columnTime > ? AND $columnIsSynced = 1',
+          [groupNumber, lastReadTimeISO]
+      )) ?? 0;
   }
 }
+
