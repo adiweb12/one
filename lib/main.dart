@@ -1,271 +1,213 @@
+// main.dart
+// Single-file Flutter app (complete) using socket_io_client + http + flutter_secure_storage
+// Put this in lib/main.dart of a Flutter project. Ensure pubspec.yaml has the required packages.
+
 import 'package:flutter/material.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // NEW IMPORT
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-// --- Global State Management ---
+// ---------------------------
+// Configuration
+// ---------------------------
+const String SERVER_URL = 'https://one-music-1dmn.onrender.com'; // <-- Your backend URL
+final FlutterSecureStorage secureStorage = FlutterSecureStorage();
+
+// ---------------------------
+// SocketService (singleton)
+// ---------------------------
+class SocketService {
+  static IO.Socket? _socket;
+
+  static IO.Socket get socket {
+    if (_socket == null) {
+      _socket = IO.io(
+        SERVER_URL,
+        IO.OptionBuilder()
+            .setTransports(['websocket'])
+            .disableAutoConnect() // we'll connect manually
+            .build(),
+      );
+      _socket!.connect();
+    }
+    return _socket!;
+  }
+
+  static void disconnect() {
+    _socket?.disconnect();
+    _socket = null;
+  }
+}
+
+// ---------------------------
+// App state
+// ---------------------------
 class AppState {
-  static String? loggedInUsername;
-  static String? loggedInPhone;
-  static String? loggedInUserId; // Changed to String to align with storage keys
+  static String? username;
+  static String? phone;
+  static String? userId;
 }
 
-// Global secure storage instance
-const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
-
-// -----------------------------------------------------------------------------
-// --- SOCKET MIXIN (Connection Logic) ---
-// -----------------------------------------------------------------------------
-
-mixin ChatState on State<MyApp> {
-  // *** IMPORTANT: REPLACE THIS WITH YOUR ACTUAL RENDER SERVICE URL ***
-  // Use https if your Render service enforces it.
-  // For local testing: final String serverUrl = 'http://10.0.2.2:5000';
-  final String serverUrl = 'https://one-music-1dmn.onrender.com/'; 
-  
-  late IO.Socket socket;
-
-  @override
-  void initState() {
-    super.initState();
-    _initializeSocket();
-  }
-
-  void _initializeSocket() {
-    socket = IO.io(serverUrl, 
-      IO.OptionBuilder()
-        .setTransports(['websocket'])
-        .disableAutoConnect()
-        .build()
-    );
-
-    socket.connect();
-    socket.onConnect((_) => print('SOCKET CONNECTED: ${socket.id}'));
-    socket.onDisconnect((_) => print('SOCKET DISCONNECTED'));
-    socket.on('status', (data) => print('SERVER STATUS: ${data['msg']}'));
-  }
-
-  @override
-  void dispose() {
-    socket.dispose();
-    super.dispose();
-  }
+// ---------------------------
+// Utilities
+// ---------------------------
+void showError(BuildContext ctx, String message) {
+  if (!ctx.mounted) return;
+  ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
 }
 
-// -----------------------------------------------------------------------------
-// --- MAIN APP STRUCTURE ---
-// -----------------------------------------------------------------------------
+void showInfo(BuildContext ctx, String message) {
+  if (!ctx.mounted) return;
+  ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text(message)));
+}
 
+// ---------------------------
+// Main
+// ---------------------------
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await _loadUserSession();
+  AppState.username = await secureStorage.read(key: 'username');
+  AppState.phone = await secureStorage.read(key: 'phone');
+  AppState.userId = await secureStorage.read(key: 'userId');
+  // Initialize socket early
+  SocketService.socket;
   runApp(const MyApp());
 }
 
-// UPDATED: Load user session from Secure Storage
-Future<void> _loadUserSession() async {
-  AppState.loggedInUsername = await _secureStorage.read(key: 'username');
-  AppState.loggedInPhone = await _secureStorage.read(key: 'phone');
-  AppState.loggedInUserId = await _secureStorage.read(key: 'userId');
-}
-
-class MyApp extends StatefulWidget {
+// ---------------------------
+// MyApp
+// ---------------------------
+class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
-  // Added global key to allow accessing ChatState from anywhere
-  static final globalKey = GlobalKey();
-
-  @override
-  State<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> with ChatState {
   @override
   Widget build(BuildContext context) {
-    // Determine the starting screen based on session state
-    final initialRoute = AppState.loggedInUsername != null 
-      ? const ChatHomePage() 
-      : const LoginScreen();
-
+    final Widget home = AppState.username != null ? const ChatHomePage() : const LoginScreen();
     return MaterialApp(
-      key: MyApp.globalKey, // Assign the global key
-      title: 'ChattyApp',
-      theme: ThemeData(
-        primaryColor: const Color(0xFF4A00E0),
-        primarySwatch: Colors.deepPurple,
-        appBarTheme: const AppBarTheme(
-          color: Color(0xFF4A00E0), 
-          titleTextStyle: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-          iconTheme: IconThemeData(color: Colors.white),
-        ),
-      ),
-      home: initialRoute, 
+      title: 'ChatFlow',
       debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        primarySwatch: Colors.deepPurple,
+        scaffoldBackgroundColor: Colors.white,
+      ),
+      home: home,
     );
   }
 }
 
-// -----------------------------------------------------------------------------
-// --- Reusable UI Widgets (No changes needed) ---
-// -----------------------------------------------------------------------------
-
-Widget buildGradientButton({required String text, required VoidCallback onPressed}) {
+// ---------------------------
+// Reusable UI helpers
+// ---------------------------
+Widget gradientButton(String text, VoidCallback onPressed) {
   return Container(
     width: double.infinity,
     decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(30.0),
-      gradient: const LinearGradient(
-        colors: [Color(0xFF00C6FF), Color(0xFF0072FF)],
-        begin: Alignment.centerLeft,
-        end: Alignment.centerRight,
-      ),
-      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 15, offset: const Offset(0, 8))],
+      borderRadius: BorderRadius.circular(30),
+      gradient: const LinearGradient(colors: [Color(0xFF00C6FF), Color(0xFF0072FF)]),
+      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: Offset(0, 4))],
     ),
     child: MaterialButton(
       onPressed: onPressed,
-      padding: const EdgeInsets.symmetric(vertical: 15.0),
-      child: Text(text, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Text(text, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
     ),
   );
 }
 
-Widget buildGradientTextField({
+Widget gradientTextField({
   required TextEditingController controller,
-  required String hintText,
+  required String hint,
   required IconData icon,
-  TextInputType keyboardType = TextInputType.text,
   bool isPassword = false,
+  TextInputType keyboardType = TextInputType.text,
 }) {
   return TextField(
     controller: controller,
     keyboardType: keyboardType,
     obscureText: isPassword,
-    style: const TextStyle(color: Colors.white, fontSize: 18),
+    style: const TextStyle(color: Colors.white),
     decoration: InputDecoration(
-      hintText: hintText,
-      hintStyle: TextStyle(color: Colors.white.withOpacity(0.6)),
-      prefixIcon: Icon(icon, color: Colors.white.withOpacity(0.8), size: 24),
+      prefixIcon: Icon(icon, color: Colors.white70),
+      hintText: hint,
+      hintStyle: const TextStyle(color: Colors.white70),
       filled: true,
-      fillColor: Colors.white.withOpacity(0.1),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12.0),
-        borderSide: BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12.0),
-        borderSide: const BorderSide(color: Colors.white, width: 2),
-      ),
-      contentPadding: const EdgeInsets.symmetric(vertical: 18.0, horizontal: 20.0),
+      fillColor: Colors.white.withOpacity(0.12),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
     ),
   );
 }
 
-// -----------------------------------------------------------------------------
-// --- 1. LOGIN SCREEN ---
-// -----------------------------------------------------------------------------
-
+// ---------------------------
+// Login Screen
+// ---------------------------
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
-
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
-
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  final String serverUrl = (MyApp.globalKey.currentContext?.findAncestorStateOfType<ChatState>() as ChatState).serverUrl;
+  final TextEditingController phoneController = TextEditingController();
+  final TextEditingController passController = TextEditingController();
+  bool loading = false;
 
-  Future<void> _login() async {
-    final phone = _phoneController.text.trim();
-    final password = _passwordController.text.trim();
-
-    if (phone.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter phone and password.')));
+  Future<void> login() async {
+    final phone = phoneController.text.trim();
+    final pass = passController.text.trim();
+    if (phone.isEmpty || pass.isEmpty) {
+      showError(context, 'Please enter phone and password.');
       return;
     }
-
+    setState(() { loading = true; });
     try {
-      final response = await http.post(
-        Uri.parse('$serverUrl/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'phone': phone, 'password': password}),
-      );
-
-      final responseBody = json.decode(response.body);
-
-      if (response.statusCode == 200) {
-        
-        // UPDATED: Store securely
-        await _secureStorage.write(key: 'username', value: responseBody['username']);
-        await _secureStorage.write(key: 'phone', value: phone);
-        await _secureStorage.write(key: 'userId', value: responseBody['id'].toString()); // Store ID as string
-        
-        AppState.loggedInUsername = responseBody['username'];
-        AppState.loggedInPhone = phone;
-        AppState.loggedInUserId = responseBody['id'].toString();
-
-        if (mounted) {
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const ChatHomePage()));
-        }
+      final res = await http.post(Uri.parse('$SERVER_URL/login'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({'phone': phone, 'password': pass}));
+      final body = json.decode(res.body);
+      if (res.statusCode == 200) {
+        await secureStorage.write(key: 'username', value: body['username']);
+        await secureStorage.write(key: 'phone', value: phone);
+        await secureStorage.write(key: 'userId', value: body['id'].toString());
+        AppState.username = body['username'];
+        AppState.phone = phone;
+        AppState.userId = body['id'].toString();
+        showInfo(context, 'Welcome, ${AppState.username}');
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ChatHomePage()));
       } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(responseBody['message'] ?? 'Login failed'), backgroundColor: Colors.red),
-          );
-        }
+        showError(context, body['message'] ?? 'Login failed');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error connecting to server: $e'), backgroundColor: Colors.red),
-        );
-      }
+      showError(context, 'Error connecting: $e');
+    } finally {
+      if (mounted) setState(() { loading = false; });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SingleChildScrollView(
-        child: Container(
-          constraints: BoxConstraints(minHeight: MediaQuery.of(context).size.height),
-          width: MediaQuery.of(context).size.width,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0), Color(0xFF003DFF)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+      body: Container(
+        decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0), Color(0xFF003DFF)], begin: Alignment.topLeft, end: Alignment.bottomRight)),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
+            child: Column(
+              children: [
+                const SizedBox(height: 20),
+                const Text('ChatFlow', style: TextStyle(color: Colors.white, fontSize: 44, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 40),
+                gradientTextField(controller: phoneController, hint: 'Phone number', icon: Icons.phone_android, keyboardType: TextInputType.phone),
+                const SizedBox(height: 16),
+                gradientTextField(controller: passController, hint: 'Password', icon: Icons.lock, isPassword: true),
+                const SizedBox(height: 24),
+                loading ? const CircularProgressIndicator(color: Colors.white) : gradientButton('LOG IN', login),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SignUpScreen())),
+                  child: const Text("Don't have an account? Sign Up", style: TextStyle(color: Colors.white70)),
+                )
+              ],
             ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              SizedBox(height: MediaQuery.of(context).size.height * 0.15),
-              const Text('ChatFlow', style: TextStyle(color: Colors.white, fontSize: 48, fontWeight: FontWeight.w900, letterSpacing: 2.0, shadows: [Shadow(blurRadius: 10.0, color: Colors.black45, offset: Offset(0, 3))])),
-              const SizedBox(height: 60),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 30.0),
-                child: Column(
-                  children: <Widget>[
-                    buildGradientTextField(controller: _phoneController, hintText: 'Phone Number', icon: Icons.phone_android, keyboardType: TextInputType.phone),
-                    const SizedBox(height: 20),
-                    buildGradientTextField(controller: _passwordController, hintText: 'Password', icon: Icons.lock_outline, isPassword: true),
-                    const SizedBox(height: 35),
-                    buildGradientButton(text: 'LOG IN', onPressed: _login),
-                    const SizedBox(height: 20),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => const SignUpScreen()));
-                      },
-                      child: const Text("Don't have an account? Sign Up", style: TextStyle(color: Colors.white70, fontSize: 16, decoration: TextDecoration.underline, decorationColor: Colors.white70)),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(height: MediaQuery.of(context).size.height * 0.05),
-            ],
           ),
         ),
       ),
@@ -273,61 +215,44 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-// -----------------------------------------------------------------------------
-// --- 2. SIGN UP SCREEN ---
-// -----------------------------------------------------------------------------
+// ---------------------------
+// SignUp Screen
+// ---------------------------
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
-
   @override
   State<SignUpScreen> createState() => _SignUpScreenState();
 }
-
 class _SignUpScreenState extends State<SignUpScreen> {
-  final TextEditingController _usernameController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  final String serverUrl = (MyApp.globalKey.currentContext?.findAncestorStateOfType<ChatState>() as ChatState).serverUrl;
+  final TextEditingController usernameController = TextEditingController();
+  final TextEditingController phoneController = TextEditingController();
+  final TextEditingController passController = TextEditingController();
+  bool loading = false;
 
-  Future<void> _signup() async {
-    final username = _usernameController.text.trim();
-    final phone = _phoneController.text.trim();
-    final password = _passwordController.text.trim();
-
-    if (username.isEmpty || phone.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill all fields.')));
+  Future<void> signup() async {
+    final username = usernameController.text.trim();
+    final phone = phoneController.text.trim();
+    final pass = passController.text.trim();
+    if (username.isEmpty || phone.isEmpty || pass.isEmpty) {
+      showError(context, 'Please fill all fields.');
       return;
     }
-
+    setState(() { loading = true; });
     try {
-      final response = await http.post(
-        Uri.parse('$serverUrl/signup'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'username': username, 'phone': phone, 'password': password}),
-      );
-
-      final responseBody = json.decode(response.body);
-
-      if (response.statusCode == 201) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Account created for ${responseBody['username']}! Please log in.'), backgroundColor: Colors.green),
-          );
-          Navigator.pop(context); // Go back to Login Screen
-        }
+      final res = await http.post(Uri.parse('$SERVER_URL/signup'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({'username': username, 'phone': phone, 'password': pass}));
+      final body = json.decode(res.body);
+      if (res.statusCode == 201) {
+        showInfo(context, 'Account created. Please log in.');
+        Navigator.pop(context);
       } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(responseBody['message'] ?? 'Sign up failed'), backgroundColor: Colors.red),
-          );
-        }
+        showError(context, body['message'] ?? 'Signup failed');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error connecting to server: $e'), backgroundColor: Colors.red),
-        );
-      }
+      showError(context, 'Error connecting: $e');
+    } finally {
+      if (mounted) setState(() { loading = false; });
     }
   }
 
@@ -335,26 +260,31 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Create Account'), backgroundColor: Colors.transparent, elevation: 0),
-      extendBodyBehindAppBar: true, 
+      extendBodyBehindAppBar: true,
       body: Container(
-        constraints: BoxConstraints(minHeight: MediaQuery.of(context).size.height),
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0), Color(0xFF003DFF)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-        ),
+        decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0), Color(0xFF003DFF)], begin: Alignment.topLeft, end: Alignment.bottomRight)),
         child: SingleChildScrollView(
-          padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 100, bottom: 40, left: 30, right: 30),
+          padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 80, left: 24, right: 24, bottom: 40),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text('Join ChatFlow', style: TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900)),
-              const SizedBox(height: 40),
-              buildGradientTextField(controller: _usernameController, hintText: 'Username', icon: Icons.person_outline),
-              const SizedBox(height: 20),
-              buildGradientTextField(controller: _phoneController, hintText: 'Phone Number', icon: Icons.phone_android, keyboardType: TextInputType.phone),
-              const SizedBox(height: 20),
-              buildGradientTextField(controller: _passwordController, hintText: 'Password', icon: Icons.lock_outline, isPassword: true),
-              const SizedBox(height: 35),
-              buildGradientButton(text: 'SIGN UP', onPressed: _signup),
+              const Text('Join ChatFlow', style: TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 32),
+              // Simple white fields on gradient
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: Colors.white.withOpacity(0.06), borderRadius: BorderRadius.circular(12)),
+                child: Column(
+                  children: [
+                    TextField(controller: usernameController, decoration: const InputDecoration(hintText: 'Username', hintStyle: TextStyle(color: Colors.white70)), style: const TextStyle(color: Colors.white)),
+                    const SizedBox(height: 12),
+                    TextField(controller: phoneController, decoration: const InputDecoration(hintText: 'Phone', hintStyle: TextStyle(color: Colors.white70)), style: const TextStyle(color: Colors.white), keyboardType: TextInputType.phone),
+                    const SizedBox(height: 12),
+                    TextField(controller: passController, decoration: const InputDecoration(hintText: 'Password', hintStyle: TextStyle(color: Colors.white70)), obscureText: true, style: const TextStyle(color: Colors.white)),
+                    const SizedBox(height: 20),
+                    loading ? const CircularProgressIndicator(color: Colors.white) : gradientButton('SIGN UP', signup),
+                  ],
+                ),
+              )
             ],
           ),
         ),
@@ -363,144 +293,113 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 }
 
-// -----------------------------------------------------------------------------
-// --- 3. CHAT HOME PAGE (People & Groups) ---
-// -----------------------------------------------------------------------------
-
-class ChatHomePage extends StatelessWidget {
+// ---------------------------
+// Chat Home (tabs for People/Groups)
+// ---------------------------
+class ChatHomePage extends StatefulWidget {
   const ChatHomePage({super.key});
+  @override
+  State<ChatHomePage> createState() => _ChatHomePageState();
+}
+class _ChatHomePageState extends State<ChatHomePage> {
+  int _index = 0;
+
+  Future<void> _logout() async {
+    await secureStorage.deleteAll();
+    AppState.username = null;
+    AppState.phone = null;
+    AppState.userId = null;
+    SocketService.disconnect();
+    if (context.mounted) {
+      Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const LoginScreen()), (r) => false);
+    }
+  }
+
+  void _showCreateGroupDialog() {
+    final TextEditingController controller = TextEditingController();
+    showDialog(context: context, builder: (ctx) {
+      return AlertDialog(
+        title: const Text('Create Group'),
+        content: TextField(controller: controller, decoration: const InputDecoration(hintText: 'Group name')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () async {
+            final name = controller.text.trim();
+            if (name.isEmpty) return;
+            try {
+              final res = await http.post(Uri.parse('$SERVER_URL/create_group'),
+                headers: {'Content-Type': 'application/json'},
+                body: json.encode({'name': name, 'creator': AppState.username}),
+              );
+              final body = json.decode(res.body);
+              if (res.statusCode == 201) {
+                Navigator.pop(ctx);
+                showInfo(context, 'Group created');
+                setState(() => _index = 1); // switch to groups
+              } else {
+                showError(context, body['message'] ?? 'Create failed');
+              }
+            } catch (e) {
+              showError(context, 'Error creating group: $e');
+            }
+          }, child: const Text('Create')),
+        ],
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final title = 'Chats';
     return DefaultTabController(
       length: 2,
+      initialIndex: _index,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Chats'),
+          title: Text(title),
+          backgroundColor: const Color(0xFF4A00E0),
           actions: [
-            IconButton(
-              icon: const Icon(Icons.settings),
-              onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilePage()));
-              },
-            ),
+            IconButton(onPressed: _logout, icon: const Icon(Icons.logout)),
           ],
           bottom: const TabBar(
-            indicatorColor: Colors.white,
-            indicatorWeight: 4.0,
-            labelStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             tabs: [
               Tab(text: 'PEOPLE', icon: Icon(Icons.person_outline)),
               Tab(text: 'GROUPS', icon: Icon(Icons.group_outlined)),
             ],
           ),
         ),
-        body: const TabBarView(
-          children: [
-            PeopleSection(),
-            GroupSection(),
-          ],
-        ),
+        body: const TabBarView(children: [PeopleSection(), GroupSection()]),
         floatingActionButton: FloatingActionButton(
+          onPressed: _showCreateGroupDialog,
           backgroundColor: const Color(0xFF00C6FF),
-          onPressed: () => _showCreateGroupDialog(context),
           child: const Icon(Icons.add, color: Colors.white),
         ),
       ),
     );
   }
-
-  void _showCreateGroupDialog(BuildContext context) {
-    final TextEditingController groupNameController = TextEditingController();
-    final String serverUrl = (context.findAncestorStateOfType<_MyAppState>() as _MyAppState).serverUrl;
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Create New Group'),
-        content: TextField(
-          controller: groupNameController,
-          decoration: const InputDecoration(hintText: 'Group Name'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () async {
-              final name = groupNameController.text.trim();
-              if (name.isEmpty) return;
-
-              try {
-                final response = await http.post(
-                  Uri.parse('$serverUrl/create_group'),
-                  headers: {'Content-Type': 'application/json'},
-                  body: json.encode({'name': name, 'creator': AppState.loggedInUsername}),
-                );
-
-                if (response.statusCode == 201) {
-                  // Successfully created, refresh the groups list
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                    DefaultTabController.of(context).animateTo(1); // Switch to Groups tab
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Group created! Refreshing list...')));
-                  }
-                } else {
-                  if (context.mounted) {
-                    final responseBody = json.decode(response.body);
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(responseBody['message'] ?? 'Failed to create group')));
-                  }
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                }
-              }
-            },
-            child: const Text('Create', style: TextStyle(color: Color(0xFF0072FF))),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
-// --- People Section Content (Empty for now) ---
+// People section - placeholder (no private chats implemented server-side)
 class PeopleSection extends StatelessWidget {
   const PeopleSection({super.key});
-  
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.all(40.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.person_search, size: 60, color: Colors.grey),
-            SizedBox(height: 10),
-            Text(
-              'No active 1-on-1 chats. Users must be manually added to chat lists in a real app.', 
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey, fontSize: 16),
-            ),
-          ],
-        ),
-      ),
-    );
+    return const Center(child: Padding(
+      padding: EdgeInsets.all(32.0),
+      child: Text('No one-to-one chat implemented. Use Groups for multi-user chat.', textAlign: TextAlign.center),
+    ));
   }
 }
 
-// --- Groups Section Content (Dynamic fetching) ---
+// Group section - fetch groups for logged-in user
 class GroupSection extends StatefulWidget {
   const GroupSection({super.key});
-
   @override
   State<GroupSection> createState() => _GroupSectionState();
 }
-
 class _GroupSectionState extends State<GroupSection> {
-  List<Map<String, String>> groups = [];
-  bool isLoading = true;
-  final String serverUrl = (MyApp.globalKey.currentContext?.findAncestorStateOfType<ChatState>() as ChatState).serverUrl;
+  bool loading = true;
+  List<Map<String, dynamic>> groups = [];
 
   @override
   void initState() {
@@ -509,417 +408,284 @@ class _GroupSectionState extends State<GroupSection> {
   }
 
   Future<void> _fetchGroups() async {
-    setState(() {
-      isLoading = true;
-    });
-
+    setState(() { loading = true; });
     try {
-      final username = AppState.loggedInUsername;
-      if (username == null) {
-        setState(() { isLoading = false; });
-        return;
-      }
-
-      final response = await http.get(Uri.parse('$serverUrl/user_groups/$username'));
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+      final username = AppState.username;
+      if (username == null) return;
+      final res = await http.get(Uri.parse('$SERVER_URL/user_groups/$username'));
+      final body = json.decode(res.body);
+      if (res.statusCode == 200) {
         setState(() {
-          groups = List<Map<String, String>>.from(data['groups'].map((g) => {
-            'name': g['name'],
-            'id': g['room_id']
-          }));
+          groups = List<Map<String, dynamic>>.from(body['groups']);
         });
       } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load groups: ${json.decode(response.body)['message']}')));
-        }
+        showError(context, body['message'] ?? 'Failed to fetch groups');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error fetching groups: $e')));
-      }
+      showError(context, 'Error fetching groups: $e');
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) setState(() { loading = false; });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
+    if (loading) return const Center(child: CircularProgressIndicator());
     if (groups.isEmpty) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text('You have not joined any groups. Use the + button to create one!'),
-            const SizedBox(height: 10),
-            ElevatedButton(onPressed: _fetchGroups, child: const Text('Refresh Groups')),
-          ],
-        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('You have not joined any groups. Create one!'),
+          const SizedBox(height: 12),
+          ElevatedButton(onPressed: _fetchGroups, child: const Text('Refresh')),
+        ]),
       );
     }
-
     return RefreshIndicator(
       onRefresh: _fetchGroups,
       child: ListView.builder(
         itemCount: groups.length,
-        itemBuilder: (context, index) => ListTile(
-          leading: const CircleAvatar(backgroundColor: Color(0xFF00C6FF), child: Icon(Icons.group, color: Colors.white)),
-          title: Text(groups[index]['name']!, style: const TextStyle(fontWeight: FontWeight.w600)),
-          subtitle: const Text('Tap to join group socket chat...'),
-          onTap: () {
-            Navigator.push(context, MaterialPageRoute(
-              builder: (context) => ChatScreen(
-                chatName: groups[index]['name']!,
-                roomId: groups[index]['id']!,
-                isGroupChat: true, 
-              ),
-            )).then((_) => _fetchGroups()); // Refresh when returning from chat
-          },
-        ),
+        itemBuilder: (ctx, i) {
+          final g = groups[i];
+          return ListTile(
+            leading: CircleAvatar(backgroundColor: const Color(0xFF00C6FF), child: const Icon(Icons.group, color: Colors.white)),
+            title: Text(g['name'] ?? 'Group'),
+            subtitle: Text('Tap to join'),
+            onTap: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(chatName: g['name'] ?? 'Group', roomId: g['room_id'] ?? '', isGroupChat: true)))
+                .then((_) => _fetchGroups());
+            },
+          );
+        },
       ),
     );
   }
 }
 
-// -----------------------------------------------------------------------------
-// --- 4. PROFILE PAGE ---
-// -----------------------------------------------------------------------------
-class ProfilePage extends StatelessWidget {
-  const ProfilePage({super.key});
-
-  // UPDATED: Use Secure Storage to log out
-  Future<void> _logout(BuildContext context) async {
-    await _secureStorage.deleteAll(); // Clear all stored credentials
-
-    AppState.loggedInUsername = null;
-    AppState.loggedInPhone = null;
-    AppState.loggedInUserId = null;
-
-    if (context.mounted) {
-      // Navigate back to the LoginScreen and clear the navigation stack
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-        (Route<dynamic> route) => false,
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
-      body: ListView(
-        children: <Widget>[
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 40),
-            color: Colors.grey[50],
-            child: Column(children: [
-                const CircleAvatar(radius: 60, backgroundColor: Color(0xFF8E2DE2), child: Icon(Icons.person, size: 50, color: Colors.white70)),
-                const SizedBox(height: 20),
-                Text(AppState.loggedInUsername ?? 'Guest', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                Text(AppState.loggedInPhone ?? 'N/A', style: const TextStyle(fontSize: 16, color: Colors.grey)),
-            ]),
-          ),
-          ListTile(leading: const Icon(Icons.edit, color: Color(0xFF4A00E0)), title: const Text('Change Display Name'), onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Feature not implemented on server.')));
-          }),
-          ListTile(leading: const Icon(Icons.notifications_none), title: const Text('Notifications'), trailing: Switch(value: true, onChanged: (bool value) {})),
-          ListTile(leading: const Icon(Icons.security), title: const Text('Privacy and Security'), onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Feature not implemented.')));
-          }),
-          
-          const Divider(height: 30),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0),
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.logout, color: Colors.white),
-              label: const Text('Log Out', style: TextStyle(fontSize: 18, color: Colors.white)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
-                padding: const EdgeInsets.symmetric(vertical: 15),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-              ),
-              onPressed: () => _logout(context),
-            ),
-          ),
-          const SizedBox(height: 20),
-        ],
-      ),
-    );
-  }
-}
-
-// -----------------------------------------------------------------------------
-// --- 5. CHAT SCREEN (WebSockets Integration) ---
-// -----------------------------------------------------------------------------
-
+// ---------------------------
+// Chat Screen
+// ---------------------------
 class ChatScreen extends StatefulWidget {
   final String chatName;
   final String roomId;
   final bool isGroupChat;
-
-  const ChatScreen({
-    super.key,
-    required this.chatName,
-    required this.roomId,
-    this.isGroupChat = false,
-  });
+  const ChatScreen({super.key, required this.chatName, required this.roomId, this.isGroupChat = false});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
-
 class _ChatScreenState extends State<ChatScreen> {
-  final TextEditingController _messageController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
-  final List<Map<String, dynamic>> _messages = [];
+  final TextEditingController msgController = TextEditingController();
+  final ScrollController scrollController = ScrollController();
+  final List<Map<String, dynamic>> messages = [];
+  bool isTyping = false;
+  bool remoteTyping = false;
 
-  IO.Socket get socket => (context.findAncestorStateOfType<_MyAppState>() as _MyAppState).socket;
-  String get serverUrl => (context.findAncestorStateOfType<_MyAppState>() as _MyAppState).serverUrl;
-  String get currentUsername => AppState.loggedInUsername ?? 'Unknown';
+  IO.Socket get socket => SocketService.socket;
+  String get me => AppState.username ?? 'Unknown';
 
   @override
   void initState() {
     super.initState();
-    _setupSocketListeners();
-    _joinChatRoom(); 
+    _setupSocket();
   }
 
-  void _joinChatRoom() {
-    if (socket.connected) {
-      socket.emit('join_chat', {
-        'room_id': widget.roomId,
-        'username': currentUsername,
-      });
-    }
-  }
-
-  void _setupSocketListeners() {
-    socket.on('receive_message', (data) {
-      if (data['room_id'] == widget.roomId) {
-        setState(() {
-          // Add if sender is not current user OR if it's a SYSTEM message
-          if (data['sender'] != currentUsername || data['sender'] == 'SYSTEM') {
-             _messages.add(data);
-          }
-        });
-        _scrollToBottom();
-      }
+  void _setupSocket() {
+    socket.onConnect((_) {
+      // join room after connect
+      socket.emit('join_chat', {'room_id': widget.roomId, 'username': me});
     });
 
     socket.on('message_history', (data) {
-      if (data['room_id'] == widget.roomId) {
-        setState(() {
-          _messages.clear(); 
-          for (var msg in data['messages']) {
-              _messages.add({
-                  'room_id': msg['room_id'],
-                  'sender': msg['sender'],
-                  'message': msg['message'],
-                  'isMe': msg['sender'] == currentUsername,
-                  'timestamp': msg['timestamp'] 
-              });
-          }
+      if (data == null) return;
+      if (data['room_id'] != widget.roomId) return;
+      messages.clear();
+      for (var m in data['messages']) {
+        messages.add({
+          'sender': m['sender'],
+          'message': m['message'],
+          'isMe': m['sender'] == me,
+          'timestamp': m['timestamp'],
         });
-        _scrollToBottom();
       }
+      setState(() {});
+      _scrollToBottom();
+    });
+
+    socket.on('receive_message', (data) {
+      if (data == null) return;
+      if (data['room_id'] != widget.roomId) return;
+      // avoid duplicating optimistic message from self: check content and sender
+      setState(() {
+        messages.add({
+          'sender': data['sender'],
+          'message': data['message'],
+          'isMe': data['sender'] == me,
+          'timestamp': data['timestamp'],
+        });
+      });
+      _scrollToBottom();
+    });
+
+    socket.on('typing', (data) {
+      if (data == null) return;
+      if (data['room_id'] != widget.roomId) return;
+      if (data['username'] == me) return;
+      setState(() {
+        remoteTyping = data['typing'] == true;
+      });
     });
 
     socket.on('group_deleted', (data) {
+      if (data == null) return;
       if (data['room_id'] == widget.roomId) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('This group has been deleted!'), backgroundColor: Colors.red));
-          Navigator.pop(context); 
+          showError(context, 'This group was deleted.');
+          Navigator.pop(context);
         }
+      }
+    });
+
+    socket.onDisconnect((_) {
+      // handle disconnect UI if needed
+    });
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (scrollController.hasClients) {
+        scrollController.animateTo(scrollController.position.maxScrollExtent, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
       }
     });
   }
 
   void _sendMessage() {
-    final text = _messageController.text.trim();
+    final text = msgController.text.trim();
     if (text.isEmpty) return;
-    
-    final now = DateTime.now();
-    final messageData = {
-      'room_id': widget.roomId,
-      'sender': currentUsername,
-      'message': text,
-      'isMe': true, 
-      'timestamp': now.hour.toString() + ':' + now.minute.toString().padLeft(2, '0') 
-    };
+    final now = TimeOfDay.now();
+    final ts = '${now.hour}:${now.minute.toString().padLeft(2,'0')}';
 
-    // 1. Instantly update local UI (optimistic update)
+    // optimistic update
     setState(() {
-      _messages.add(messageData);
+      messages.add({'sender': me, 'message': text, 'isMe': true, 'timestamp': ts});
     });
-    
-    // 2. Emit to the server
-    socket.emit('send_message', messageData);
-    
-    // 3. Clear and scroll
-    _messageController.clear();
     _scrollToBottom();
+
+    socket.emit('send_message', {'room_id': widget.roomId, 'sender': me, 'message': text});
+    msgController.clear();
+    _setTyping(false);
+  }
+
+  void _setTyping(bool typing) {
+    if (isTyping == typing) return;
+    isTyping = typing;
+    socket.emit('typing', {'room_id': widget.roomId, 'username': me, 'typing': typing});
   }
 
   Future<void> _handleGroupAction(String action) async {
-    final Map<String, dynamic> data = {'room_id': widget.roomId, 'username': currentUsername};
-    String endpoint = '';
-
-    if (action == 'leave') {
-      endpoint = '/leave_group';
-    } else if (action == 'delete') {
-      endpoint = '/delete_group';
-    } else {
-      return;
-    }
-
+    final Map<String, String> data = {'room_id': widget.roomId, 'username': me};
+    final endpoint = action == 'leave' ? '/leave_group' : '/delete_group';
     try {
-      final response = await http.post(
-        Uri.parse(serverUrl + endpoint),
+      final res = await http.post(Uri.parse('$SERVER_URL$endpoint'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode(data),
       );
-
-      final responseBody = json.decode(response.body);
-
-      if (response.statusCode == 200) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(responseBody['message'])));
-          Navigator.pop(context); // Go back to group list
-        }
+      final body = json.decode(res.body);
+      if (res.statusCode == 200) {
+        showInfo(context, body['message'] ?? 'Action done');
+        Navigator.pop(context);
       } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(responseBody['message'] ?? 'Action failed'), backgroundColor: Colors.red));
-        }
+        showError(context, body['message'] ?? 'Action failed');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Server Error: $e'), backgroundColor: Colors.red));
-      }
+      showError(context, 'Server error: $e');
     }
   }
-  
-  void _scrollToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    });
+
+  @override
+  void dispose() {
+    socket.off('message_history');
+    socket.off('receive_message');
+    socket.off('typing');
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final typingWidget = remoteTyping ? const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: Text('Someone is typing...', style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
+    ) : const SizedBox.shrink();
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.chatName),
-        actions: <Widget>[
+        actions: [
           if (widget.isGroupChat)
             PopupMenuButton<String>(
-              onSelected: _handleGroupAction,
-              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                const PopupMenuItem<String>(value: 'leave', child: Text('Leave Group')),
-                const PopupMenuItem<String>(value: 'delete', child: Text('Delete Group', style: TextStyle(color: Colors.red))),
+              onSelected: (v) => _handleGroupAction(v),
+              itemBuilder: (_) => [
+                const PopupMenuItem(value: 'leave', child: Text('Leave Group')),
+                const PopupMenuItem(value: 'delete', child: Text('Delete Group', style: TextStyle(color: Colors.red))),
               ],
-            ),
+            )
         ],
       ),
-      
       body: Column(
-        children: <Widget>[
+        children: [
           Expanded(
             child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final message = _messages[index];
-                return _buildMessageBubble(message);
-              },
+              controller: scrollController,
+              padding: const EdgeInsets.all(12),
+              itemCount: messages.length,
+              itemBuilder: (ctx, i) {
+                final m = messages[i];
+                final isMe = m['isMe'] == true;
+                return Align(
+                  alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+                    decoration: BoxDecoration(
+                      color: isMe ? const Color(0xFF00C6FF) : Colors.grey[200],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                      children: [
+                        if (!isMe && widget.isGroupChat) Text(m['sender'] ?? '', style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                        const SizedBox(height: 4),
+                        Text(m['message'] ?? '', style: TextStyle(color: isMe ? Colors.white : Colors.black87)),
+                        const SizedBox(height: 6),
+                        Text(m['timestamp'] ?? '', style: TextStyle(fontSize: 10, color: isMe ? Colors.white70 : Colors.black45)),
+                      ],
+                    ),
+                  ),
+                );
+              }
             ),
           ),
-          _buildMessageInput(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMessageBubble(Map<String, dynamic> message) {
-    final isMe = message['isMe'] as bool;
-    final text = message['message'] as String;
-    final sender = message['sender'] as String;
-    final alignment = isMe ? Alignment.centerRight : Alignment.centerLeft;
-    final color = isMe ? const Color(0xFF00C6FF) : (sender == 'SYSTEM' ? Colors.amber[100] : const Color(0xFFE0E0E0));
-    final textColor = isMe ? Colors.white : Colors.black;
-
-    return Container(
-      alignment: alignment,
-      margin: const EdgeInsets.symmetric(vertical: 6.0),
-      child: Column(
-        crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: [
-          if (!isMe && sender != 'SYSTEM' && widget.isGroupChat) // Show sender name for others' messages in group chat
-            Padding(
-              padding: const EdgeInsets.only(bottom: 2.0, left: 12.0, right: 12.0),
-              child: Text(sender, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-            ),
+          typingWidget,
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
-            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(15.0).copyWith(
-                bottomLeft: isMe ? const Radius.circular(15.0) : const Radius.circular(5.0),
-                bottomRight: isMe ? const Radius.circular(5.0) : const Radius.circular(15.0),
-              ),
-              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 2, offset: Offset(0, 1))]
-            ),
-            child: Text(text, style: TextStyle(color: textColor, fontSize: 16)),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(top: 2.0, left: 8.0, right: 8.0),
-            child: Text(message['timestamp'] ?? '', style: TextStyle(fontSize: 10, color: Colors.grey[400])),
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMessageInput() {
-    return Container(
-      padding: const EdgeInsets.all(8.0),
-      color: Colors.white,
-      child: Row(
-        children: <Widget>[
-          IconButton(icon: const Icon(Icons.attach_file, color: Color(0xFF4A00E0)), onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Attachment feature not implemented.')));
-          }),
-          Expanded(
-            child: TextField(
-              controller: _messageController,
-              decoration: InputDecoration(
-                hintText: 'Type a message...',
-                filled: true,
-                fillColor: Colors.grey[200],
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(25.0), borderSide: BorderSide.none),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              ),
-              onSubmitted: (_) => _sendMessage(),
+            color: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            child: Row(
+              children: [
+                IconButton(icon: const Icon(Icons.attach_file, color: Color(0xFF4A00E0)), onPressed: () => showInfo(context, 'Attachment not implemented')),
+                Expanded(
+                  child: TextField(
+                    controller: msgController,
+                    decoration: const InputDecoration(hintText: 'Type a message...', filled: true, fillColor: Color(0xFFF2F2F2), border: OutlineInputBorder(borderSide: BorderSide.none, borderRadius: BorderRadius.all(Radius.circular(24)))),
+                    onChanged: (v) {
+                      _setTyping(v.trim().isNotEmpty);
+                    },
+                    onSubmitted: (_) => _sendMessage(),
+                  ),
+                ),
+                IconButton(icon: const Icon(Icons.send, color: Color(0xFF00C6FF)), onPressed: _sendMessage)
+              ],
             ),
           ),
-          IconButton(icon: const Icon(Icons.send, color: Color(0xFF00C6FF), size: 30), onPressed: _sendMessage),
         ],
       ),
     );
