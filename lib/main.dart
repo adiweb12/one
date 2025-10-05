@@ -11,7 +11,7 @@ void main() {
 }
 
 // ⚠️ CHANGE THIS TO YOUR DEPLOYED FLASK SERVER URL
-const String SERVER_IP = "onechatjdifivifrrfigiufitxtd6xy.onrender.com";
+const String SERVER_IP = "one-music-1dmn.onrender.com";
 // ⚠️ YOUR PROVIDED GIPHY API KEY
 const String GIPHY_API_KEY = "Bb6tO0TsfIXOz77VFevRStSUpgWy6geO";
 
